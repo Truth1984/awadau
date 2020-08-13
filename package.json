@@ -1,6 +1,6 @@
 {
   "name": "awadau",
-  "version": "1.0.0",
+  "version": "1.0.01",
   "description": "utils",
   "main": "index.js",
   "scripts": {
@@ -23,6 +23,7 @@
     "isomorphic-fetch": "^2.2.1",
     "json-stringify-safe": "^5.0.1",
     "lodash": "^4.17.19",
+    "qrcode": "^1.4.4",
     "serialize-javascript": "^4.0.0"
   },
   "devDependencies": {
