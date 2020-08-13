@@ -1,5 +1,4 @@
-const _ = require("lodash"),
-  fetch = require("isomorphic-fetch"),
+const fetch = require("isomorphic-fetch"),
   serialize = require("serialize-javascript"),
   jStringify = require("json-stringify-safe");
 
@@ -7,7 +6,6 @@ var u = {};
 
 u._global = {};
 u.ex = {};
-u.ex._ = _;
 
 u.log = async (msg, extra = "", level = "info") => {
   let plain = { date: new Date().toLocaleString("en-US", { hour12: false }), level, extra };
@@ -564,11 +562,6 @@ u.arrayPerform = (arr, callback = () => {}) => {
 u.arrayPerformPromise = async (arr, callback = async () => {}) => {
   if (u.isBad(arr)) return null;
   return Promise.all(u.arrayPerform(arr, callback));
-};
-
-u.cleanValue = (aSet) => {
-  if (u.typeCheck(aSet, Array)) return _.compact(aSet);
-  return _.pickBy(aSet, _.identity);
 };
 
 u.mapMerge = (...maps) => maps.reduce((hook, item) => Object.assign(hook, item), {});

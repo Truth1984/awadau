@@ -1,4 +1,3 @@
-import qrcode from "qrcode";
 import u from "../index";
 
 let w = {};
@@ -165,8 +164,8 @@ w.screenSize = () => {
   return [window.screen.availWidth, window.screen.availHeight, window.screen.width, window.screen.height];
 };
 
-w.qrcode = (text, canvasid) => {
-  return qrcode.toCanvas(window.document.getElementById(canvasid), text, { errorCorrectionLevel: "H" });
-};
+// w.qrcode = (text, canvasid) => {
+//   return qrcode.toCanvas(window.document.getElementById(canvasid), text, { errorCorrectionLevel: "H" });
+// };
 
 export default { ...u, ...w };
