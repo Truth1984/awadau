@@ -6,8 +6,11 @@ let reject = (location) => {
   throw new Error(location);
 };
 
-t.add("contain", async () => {
-  let r = () => reject("contain");
+let sadd = (name, cb) => {
+  t.add(name, () => cb(() => reject(name)));
+};
+
+sadd("contain", async (r) => {
   if (!u.contains([1], 1)) return r();
   if (!u.contains({ 2: 3, 5: 6 }, { 2: 3 })) return r();
   if (!u.contains("casd", "sd")) return r();
@@ -22,8 +25,7 @@ t.add("contain", async () => {
   if (u.contains({ ds: 12, bd: "wq" }, [12, "bd"])) return r();
 });
 
-t.add("equal", async () => {
-  let r = () => reject("equal");
+sadd("equal", async (r) => {
   if (!u.equal(1, 1)) return r();
   if (!u.equal([1], [1])) return r();
   if (!u.equal({ 1: "a" }, { 1: "a" })) return r();
@@ -33,6 +35,20 @@ t.add("equal", async () => {
   if (u.equal("1", [1])) return r();
   if (u.equal([1], ["1"])) return r();
   if (u.equal(["1", null], ["1,null"])) return r();
+});
+
+sadd("typeCheck", async (r) => {
+  if (!u.typeCheck(Promise.resolve(), "promise")) return r();
+  if (!u.typeCheck(12, "num")) return r();
+  if (!u.typeCheck("das", "str")) return r();
+  if (!u.typeCheck(true, "bool")) return r();
+  if (u.typeCheck(1, "bool")) return r();
+  if (u.typeCheck("true", "bool")) return r();
+  if (!u.typeCheck(u.date(), "date")) return r();
+  if (!u.typeCheck([21], "arr")) return r();
+  if (u.typeCheck("33,12", "arr")) return r();
+  if (!u.typeCheck({ a: 12 }, "map")) return r();
+  if (!u.typeCheck(() => {}, "func")) return r();
 });
 
 u.log(t.runAuto().then(() => "all test passed"));

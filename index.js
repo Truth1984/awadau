@@ -87,6 +87,9 @@ u.equal = (item1, item2) => {
   return JSON.stringify(item1) === JSON.stringify(item2);
 };
 
+/**
+ * @param {"null" | "udf" | "nan" | "str" | "num" | "bool" | "arr" | "obj" | "map" | "func" | "obj" | "date" | "promise" | "regex" | "class" } type
+ */
 u.typeCheck = (obj = undefined, type = undefined) => {
   if (type === undefined) return typeof obj;
   if (Number.isNaN(type)) type = "nan";
