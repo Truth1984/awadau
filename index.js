@@ -205,12 +205,13 @@ u.repeatValues = (value, times) => {
 };
 
 /**
- * @return -1 if item is bad
+ * @return -1 if item is bad / float
  */
 u.len = (item) => {
-  if (u.isBad(item)) return -1;
   if (item instanceof Object) return Object.keys(item).length;
-  return item.length;
+  if (item.length) return item.length;
+  if (Number.isInteger(item)) return item.toString().length;
+  return -1;
 };
 
 u.isBad = (item, badType = [null, undefined]) => {
@@ -494,47 +495,24 @@ u.arrayOfMapInnerJoin = (aom1, aom2, pkey1, pkey2) => {
   return result;
 };
 
-u.arrayOfMapSearch = (arr, pairs) => {
-  if (arr === null) return null;
-  return arr.filter((item) => {
-    for (let i in pairs) {
-      if (item === null) return false;
-      if (u.equal(item[i], pairs[i])) return true;
-    }
-    return false;
-  });
+u.arrayOfMapSelectKeys = (arr, ...keys) => {
+  return u.deepCopy(arr).map((i) => u.mapGetExcept(i, ...keys));
 };
 
-u.arrayOfMapSet = (arr, matchedPairs, modify) => {
-  if (arr === null) return null;
-  for (let i in arr) {
-    let target = arr[i];
-    let evaluate = true;
-    for (let j of u.mapKeys(matchedPairs)) {
-      if (target[j] !== matchedPairs[j]) {
-        evaluate = false;
-        break;
-      }
-    }
-    if (evaluate) arr[i] = u.mapMergeDeep(target, modify);
-  }
-  return arr;
+u.arrayOfMapSearch = (arr, containedPairs = {}) => {
+  return arr.filter((item) => u.contains(item, containedPairs));
 };
 
-u.arrayOfMapFindPerform = (arr, matchedPairs, action = () => {}) => {
-  if (arr === null) return null;
-  for (let i in arr) {
-    let target = arr[i];
-    let evaluate = true;
-    for (let j of u.mapKeys(matchedPairs)) {
-      if (target[j] !== matchedPairs[j]) {
-        evaluate = false;
-        break;
-      }
-    }
-    if (evaluate) arr[i] = action(target);
-  }
-  return arr;
+u.arrayOfMapSet = (arr, matchedPairs, modify = {}) => {
+  let darr = u.deepCopy(arr);
+  for (let i of darr) if (u.contains(i, matchedPairs)) i = u.mapMergeDeep(i, modify);
+  return darr;
+};
+
+u.arrayOfMapFindPerform = async (arr, matchedPairs = {}, action = () => {}) => {
+  let darr = u.deepCopy(arr);
+  for (let i of darr) if (u.contains(i, matchedPairs)) i = await action(i);
+  return darr;
 };
 
 u.arrayOfMapSort = (arr, target, asc = true) => {
@@ -545,11 +523,9 @@ u.arrayOfMapSort = (arr, target, asc = true) => {
 
 u.arrayOfMapToMap = (aom = [], keyTarget, valueTarget) => {
   let result = {};
-  if (valueTarget == undefined) {
-    for (let i of aom) result[i[keyTarget]] = u.mapGetExcept(i, keyTarget);
-  } else {
-    for (let i of aom) result[i[keyTarget]] = i[valueTarget];
-  }
+  if (valueTarget == undefined) for (let i of aom) result[i[keyTarget]] = u.mapGetExcept(i, keyTarget);
+  else for (let i of aom) result[i[keyTarget]] = i[valueTarget];
+
   return result;
 };
 

@@ -51,4 +51,12 @@ sadd("typeCheck", async (r) => {
   if (!u.typeCheck(() => {}, "func")) return r();
 });
 
+sadd("len", async (r) => {
+  if (u.len({ 1: 3, 2: 4 }) != 2) return r();
+  if (u.len([1, 5, 3]) != 3) return r();
+  if (u.len("dqd") != 3) return r();
+  if (u.len(3241) != 4) return r();
+  if (u.len(2.3) != -1) return r();
+});
+
 u.log(t.runAuto().then(() => "all test passed"));
