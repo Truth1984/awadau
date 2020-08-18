@@ -496,7 +496,7 @@ u.arrayOfMapInnerJoin = (aom1, aom2, pkey1, pkey2) => {
 };
 
 u.arrayOfMapSelectKeys = (arr, ...keys) => {
-  return u.deepCopy(arr).map((i) => u.mapGetExcept(i, ...keys));
+  return u.deepCopy(arr).map((i) => u.mapGetExist(i, ...keys));
 };
 
 u.arrayOfMapSearch = (arr, containedPairs = {}) => {
