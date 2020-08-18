@@ -228,17 +228,16 @@ u.isBadAssign = (item, elseValue, badType = [null, undefined]) => {
   return u.isBad(item, badType) ? elseValue : item;
 };
 
-u.toStr = (obj, warningIfBad = true) => {
+u.toStr = (obj) => {
   if (u.typeCheck(obj) === "object" || u.typeCheck(obj, Promise)) return u.jsonToString(obj);
   // bad
-  if (u.isBad(obj, [undefined, null, NaN]) && warningIfBad) u.error("u.toString, obj is " + obj, true);
+  if (u.isBad(obj, [undefined, null, NaN])) return "";
   //boolean class function
   return obj + "";
 };
 
-u.error = (message, warning_continuable = false) => {
-  if (warning_continuable) console.warn(message);
-  else throw new Error(message);
+u.error = (message, extra = "") => {
+  return u.log(message, extra, "error");
 };
 
 u.int = (number) => Number.parseInt(number);
@@ -532,15 +531,14 @@ u.arrayOfMapToMap = (aom = [], keyTarget, valueTarget) => {
 u.arrayFlatten = (arr, level = Infinity) => arr.flat(level);
 
 u.arrayPerform = (arr, callback = () => {}) => {
-  if (u.isBad(arr)) return null;
   let array = Array.from(arr);
   for (let i in array) array[i] = callback(array[i]);
   return array;
 };
 
 u.arrayPerformPromise = async (arr, callback = async () => {}) => {
-  if (u.isBad(arr)) return null;
-  return Promise.all(u.arrayPerform(arr, callback));
+  let darr = u.deepCopy(arr);
+  for (let i of darr) i = await callback(i);
 };
 
 u.mapMerge = (...maps) => maps.reduce((hook, item) => Object.assign(hook, item), {});
@@ -1048,10 +1046,6 @@ u.timeoutRepeatTotal = (func, everyXSec = 1, totalExec) => {
  */
 u.timeoutReject = async (func, seconds = 30, errorMsg = "timeout reached") => {
   return Promise.race([async () => func(), u.promiseTimeout(() => {}, seconds).then(() => Promise.reject(errorMsg))]);
-};
-
-u._promiseCheck = async (promiseObj) => {
-  if (!u.typeCheck(promiseObj, Promise)) u.error(u.toStr(promiseObj) + "is not a proper promise object");
 };
 
 u.promisify = async (func, ...args) => await func(...args);
