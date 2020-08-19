@@ -640,7 +640,7 @@ u.mapFilter = (map, func) => {
 
 u.stringToArray = (line, sep = ",") => line.split(sep);
 
-u.stringToRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+u.stringToRegex = (string) => new RegExp(string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
 u.date = (value) => {
   if (!Number.isNaN(Number(value))) return new Date(Number(value));
@@ -697,20 +697,12 @@ u.dateCurrent = (returnType = {}, dobj = new Date()) => {
   if (Array.isArray(returnType)) {
     return [year, month, day, hour, minute, second];
   }
-  return {
-    year,
-    month,
-    day,
-    hour,
-    minute,
-    second,
-  };
+  return { year, month, day, hour, minute, second };
 };
 
 u.dateCurrentParse = (currentObj) => {
-  if (Array.isArray(currentObj)) {
-    return u.genDate(...currentObj);
-  }
+  if (Array.isArray(currentObj)) return u.genDate(...currentObj);
+
   return u.genDate(
     currentObj.year,
     currentObj.month,
@@ -798,12 +790,15 @@ u.dateAdd = (difference = {}, date = new Date()) => {
     second: date.getSeconds(),
   };
 
-  for (let i of u.mapKeys(difference)) {
-    json[i] = json[i] + Number.parseInt(difference[i]);
-  }
+  for (let i of u.mapKeys(difference)) json[i] = json[i] + Number.parseInt(difference[i]);
+
   return u.dateCurrentParse(json);
 };
 
+/**
+ *
+ * @param {{year?:number, month?:number,day?:number,hour?:number,minute?:number,second?:number } | number} mapOrNum
+ */
 u.genTime = (mapOrNum = {}) => {
   let calc = {
     year: 31536000000,
@@ -953,9 +948,7 @@ u.jsonSearchKey = (obj, key) => {
   let list = [];
   if (!obj) return list;
   if (obj instanceof Array) {
-    for (var i in obj) {
-      list = list.concat(u.jsonSearchKey(obj[i], key));
-    }
+    for (var i in obj) list = list.concat(u.jsonSearchKey(obj[i], key));
     return list;
   }
   if (obj[key]) list.push(obj[key]);
@@ -973,15 +966,7 @@ u.jsonSearchKey = (obj, key) => {
 
 u.deepCopy = (obj) => (u.typeCheck(obj, "arr") ? Array.from(obj) : Object.assign({}, obj));
 
-u.fileExtension = (pathString) => {
-  if (u.contains(pathString, "/")) {
-    pathString = u.stringToArray(pathString, "/").pop();
-  }
-  if (u.contains(pathString, "\\")) {
-    pathString = u.stringToArray(pathString, "\\").pop();
-  }
-  return u.refind(pathString, /(\.[^.]+)$/);
-};
+u.fileExtension = (pathString) => u.refind(pathString, /(\.[^.]+)$/);
 
 u.url = (url) => {
   if (u.refind(url, /^localhost/)) return "http://" + url;
@@ -1049,21 +1034,6 @@ u.timeoutReject = async (func, seconds = 30, errorMsg = "timeout reached") => {
 };
 
 u.promisify = async (func, ...args) => await func(...args);
-
-u.promiseLoadImg = async (url, absolute = false) => {
-  url = absolute ? url : u.url(url);
-
-  return new Promise((resolve, reject) => {
-    let image = new Image();
-    image.onload = () => {
-      resolve(image);
-    };
-    image.onerror = () => {
-      reject(new Error("Could not load image at " + url));
-    };
-    image.src = url;
-  });
-};
 
 u.promiseTimeout = async (funcOrPromise, waitSeconds = 0) => {
   return new Promise((resolve) => u.timeout(() => resolve(funcOrPromise()), waitSeconds, -1));
