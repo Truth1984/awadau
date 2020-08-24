@@ -150,6 +150,9 @@ u.typeCheck = (obj = undefined, type = undefined) => {
   }
 };
 
+/**
+ * @returns {null | object}
+ */
 u._parseJsonCheck = (string) => {
   let result = null;
   try {
@@ -228,6 +231,9 @@ u.isBadAssign = (item, elseValue, badType = [null, undefined]) => {
   return u.isBad(item, badType) ? elseValue : item;
 };
 
+/**
+ * @return {"" | string} if obj is undefined / null / NaN
+ */
 u.toStr = (obj) => {
   if (u.typeCheck(obj) === "object" || u.typeCheck(obj, Promise)) return u.jsonToString(obj);
   // bad
@@ -346,9 +352,7 @@ u.arrayExtract = (arr, start, end = arr.length) => arr.slice(start, end);
 u.arrayRemove = (arr, items = []) => {
   let result = [];
   if (!u.typeCheck(items, "arr")) items = [items];
-  for (let i of arr) {
-    if (!u.contains(items, i)) result.push(i);
-  }
+  for (let i of arr) if (!u.contains(items, i)) result.push(i);
   return result;
 };
 
@@ -1077,19 +1081,37 @@ u.promiseAllCompleteSafe = async (...promiseObjs) => {
   return Promise.all(promiseObjs);
 };
 
+/**
+ * @typedef {{
+    "Content-Type"?:"application/json; charset=utf-8" | "application/x-www-form-urlencoded"
+  }} headers
+ */
+
+/**
+  * @typedef {{
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    mode?: "same-origin" | "cors" | "no-cors",
+    cache?: "default" | "no-cache" | "reload" | "force-cache" | "only-if-cached",
+    credentials?: "same-origin" | "include" | "omit",
+    redirect?: "follow" | "manual" | "error",
+    referrer?: "client" | "no-referrer"
+  }} fetchOption
+  */
+
+/**
+ *
+ * @param {headers} headers
+ * @param {fetchOption} fetchSettings
+ */
 u.promiseFetchGet = async (url, headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
   if (!u.contains(url, "localhost") || url.toLowerCase() !== "about:blank") url = u.url(url);
   let param = {
-    method: "GET", // *GET, POST, PUT, DELETE, etc.
-    // mode: "no-cors", // no-cors, cors, *same-origin
-    // cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
-    // credentials: "same-origin", // include, *same-origin, omit
+    method: "GET",
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      // "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36",
     },
-    // redirect: "follow", // manual, *follow, error
-    // referrer: "no-referrer", // no-referrer, *client
   };
   param.headers = u.mapMerge(param.headers, headers);
   param = u.mapMerge(param, fetchSettings);
@@ -1119,6 +1141,11 @@ u._jsonToUri = (parameter = {}) => {
   return result.slice(0, u.len(result) - 1);
 };
 
+/**
+ *
+ * @param {headers} headers
+ * @param {fetchOption} fetchSettings
+ */
 u.promiseFetchPost = async (url, parameterURL = {}, headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
   fetchSettings = u.mapMerge(fetchSettings, { method: "POST", body: u.jsonToString(parameterURL) });
   return u.promiseFetchGet(url, headers, fetchSettings, retry, interval);
