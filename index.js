@@ -1,5 +1,6 @@
 const fetch = require("isomorphic-fetch"),
   serialize = require("serialize-javascript"),
+  floatFormat = require("float-format"),
   jStringify = require("json-stringify-safe");
 
 var u = {};
@@ -312,12 +313,7 @@ u.numberShorten = (num, tofix = 2, languageEn = true) => {
   }
 };
 
-u.float = (number) => {
-  number = parseFloat(number);
-  if (Number.isNaN(number)) return NaN;
-  let round = u.stringToArray(String(number), ".")[0].length;
-  return Number(number.toFixed(15 - round > 0 ? 15 - round : 2).replace(/\.?0*$/, ""));
-};
+u.float = (number) => floatFormat(number);
 
 u.productList = (...lists) => {
   lists.forEach((value, index, arr) => {

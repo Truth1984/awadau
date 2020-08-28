@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/Truth1984/awadau#readme",
   "dependencies": {
+    "float-format": "^1.0.0",
     "isomorphic-fetch": "^2.2.1",
     "json-stringify-safe": "^5.0.1",
     "serialize-javascript": "^4.0.0"
