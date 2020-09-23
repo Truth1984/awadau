@@ -315,6 +315,8 @@ u.numberShorten = (num, tofix = 2, languageEn = true) => {
 
 u.float = (number) => floatFormat(number);
 
+u.floatCompare = (f1, f2, precision) => floatFormat(f1, f2, precision);
+
 u.productList = (...lists) => {
   lists.forEach((value, index, arr) => {
     arr[index] = u.typeCheck(value, Array) ? value : [value];
