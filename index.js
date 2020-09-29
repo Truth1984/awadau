@@ -89,7 +89,7 @@ u.equal = (item1, item2) => {
 };
 
 /**
- * @param {"null" | "udf" | "nan" | "str" | "num" | "bool" | "arr" | "obj" | "map" | "func" | "obj" | "date" | "promise" | "regex" | "class" } type
+ * @param {"null" | "udf" | "nan" | "str" | "num" | "bool" | "arr" | "obj" | "map" | "func" | "obj" | "date" | "promise" | "regex" | "class" | "err" } type
  */
 u.typeCheck = (obj = undefined, type = undefined) => {
   if (type === undefined) return typeof obj;
@@ -144,6 +144,9 @@ u.typeCheck = (obj = undefined, type = undefined) => {
     case "regex":
     case "regexp":
       return obj instanceof RegExp;
+    case "err":
+    case "error":
+      return obj instanceof Error;
     case "class":
       return typeof obj === "function" && /^\s*class\s+/.test(obj.toString());
     default:
