@@ -216,7 +216,7 @@ u.repeatValues = (value, times) => {
  */
 u.len = (item) => {
   if (item instanceof Object) return Object.keys(item).length;
-  if (item.length) return item.length;
+  if (item && item.length) return item.length;
   if (Number.isInteger(item)) return item.toString().length;
   return -1;
 };
