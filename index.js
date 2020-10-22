@@ -1016,6 +1016,18 @@ u.join.map13 = (map1, map2) => {
   return u.join.map1(u.mapMerge(map1, map2), same);
 };
 
+// eslint-disable-next-line no-unused-vars
+u.forReverse = (obj, callback = (item, index) => {}) => {
+  for (let i = u.len(obj) - 1; i > -1; i--) callback(obj[i], i);
+  return obj;
+};
+
+// eslint-disable-next-line no-unused-vars
+u.forReversePromise = async (obj, callback = async (item, index) => {}) => {
+  for (let i = u.len(obj) - 1; i > -1; i--) await callback(obj[i], i);
+  return obj;
+};
+
 u.timeout = (func, after = 0, end = after + 15) => {
   let target = setTimeout(func, after * 1000);
   if (end > 0) setTimeout(() => clearTimeout(target), end * 1000);
