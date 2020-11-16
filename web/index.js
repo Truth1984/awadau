@@ -1,4 +1,4 @@
-import u from "../index";
+var u = require("../index");
 
 let w = {};
 
@@ -168,4 +168,6 @@ w.screenSize = () => {
 //   return qrcode.toCanvas(window.document.getElementById(canvasid), text, { errorCorrectionLevel: "H" });
 // };
 
-export default { ...u, ...w };
+window.u = { ...u, ...w };
+
+module.exports = { ...u, ...w };
