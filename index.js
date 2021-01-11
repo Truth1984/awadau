@@ -192,7 +192,7 @@ u.stringCheckType = (string = "", type = "*") => {
       return string.toString().toLowerCase() === "true" || string.toString().toLowerCase() === "false";
     case Date:
     case "date":
-      return new Date(string) !== "Invalid Date";
+      return new Date(string) != "Invalid Date";
 
     default:
       if (u.typeCheck(type, "regex")) return type.test(string);
@@ -200,6 +200,14 @@ u.stringCheckType = (string = "", type = "*") => {
       if (u.isBad(u.reCommon(type))) return false;
       return u.reCommon(type).test(string);
   }
+};
+
+u.stringConvertType = (string = "", number = false) => {
+  if (u._parseJsonCheck(string)) return u.stringToJson(string);
+  if (u.stringCheckType(string, "bool")) return string.toString().toLowerCase() === "true";
+  if (u.stringCheckType(string, "date")) return new Date(string);
+  if (number) return u.float(string);
+  return string;
 };
 
 u.repeatValues = (value, times) => {
