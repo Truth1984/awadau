@@ -89,7 +89,7 @@ u.equal = (item1, item2) => {
 };
 
 /**
- * @param {"null" | "udf" | "nan" | "str" | "num" | "bool" | "arr" | "obj" | "map" | "func" | "asyncFunc" | "obj" | "date" | "promise" | "regex" | "class" | "err" } type
+ * @param {"null" | "udf" | "nan" | "str" | "num" | "bool" | "arr" | "obj" | "map" | "func" | "asyncfunc" | "obj" | "date" | "promise" | "regex" | "class" | "err" } type
  */
 u.typeCheck = (obj = undefined, type = undefined) => {
   if (type === undefined) return typeof obj;
@@ -134,7 +134,7 @@ u.typeCheck = (obj = undefined, type = undefined) => {
     case "func":
     case "function":
       return obj instanceof Function;
-    case "asyncFunc":
+    case "asyncfunc":
     case "async":
       return obj instanceof Function && obj.constructor.name === "AsyncFunction";
     case Promise:
