@@ -1,6 +1,6 @@
 {
   "name": "awadau",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "utils",
   "main": "index.js",
   "scripts": {
