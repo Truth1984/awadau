@@ -261,6 +261,14 @@ u.error = (message, extra = "") => {
   return u.log(message, extra, "error");
 };
 
+/**
+ * @returns {{message:?string, stack:?string}}
+ */
+u.errorHandle = (error) => {
+  if (u.typeCheck(error, "err")) return { message: error.message, stack: error.stack };
+  return error;
+};
+
 u.int = (number) => Number.parseInt(number);
 
 u.hex = (number, base = 16, fix = 1) => {
