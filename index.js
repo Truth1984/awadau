@@ -8,17 +8,25 @@ var u = {};
 u._global = {};
 u.ex = {};
 
-u.log = async (msg, extra = "", level = "info") => {
-  let plain = { date: new Date().toLocaleString("en-US", { hour12: false }), level, extra };
-  if (u.typeCheck(msg, "promise"))
-    await msg
-      .then((data) => (plain = u.mapMerge(plain, { promise: true, msg: data })))
-      .catch((e) => {
-        console.error(e);
-        plain = u.mapMerge(plain, { promise: true, level: "error", msg: e.message });
-      });
-  else plain = u.mapMerge(plain, { msg });
-  console.log(u.jsonToString(plain, ""));
+/**
+ * @param {"TRACE"|"DEBUG"|"INFO"|"WARN"|"ERROR"|"FATAL"} severityThen
+ * @param {"TRACE"|"DEBUG"|"INFO"|"WARN"|"ERROR"|"FATAL"} severityCatch
+ */
+u.log = async (message, extra = {}, _section, severityThen = "INFO", severityCatch = "ERROR") => {
+  let plain = { date: new Date().toLocaleString("en-US", { hour12: false }) };
+  let segment = u.mapMerge(
+    _section ? { _section } : {},
+    { ...extra },
+    u.typeCheck(message, "promise") ? { _promise: true } : {}
+  );
+  return Promise.resolve(message)
+    .then((data) => {
+      return u.mapMerge(plain, { message: data, severity: severityThen, ...segment });
+    })
+    .catch((e) => {
+      return u.mapMerge(plain, { message: u.errorHandle(e), severity: severityCatch, ...segment, error: true });
+    })
+    .then((result) => console.log(u.jsonToString(result, "")));
 };
 
 u.contains = (origin, item) => {
@@ -255,10 +263,6 @@ u.toStr = (obj) => {
   if (u.isBad(obj, [undefined, null, NaN])) return "";
   //boolean class function
   return obj + "";
-};
-
-u.error = (message, extra = "") => {
-  return u.log(message, extra, "error");
 };
 
 /**
