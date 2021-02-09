@@ -602,6 +602,14 @@ u.mapValues = (aSet) => Object.values(aSet);
 
 u.mapGet = (aSet, ...keys) => keys.reduce((hook, item) => Object.assign(hook, { [item]: aSet[item] }), {});
 
+u.mapGetPath = (aSet, path = [], fallbackData = {}) => {
+  let last = path.pop();
+  for (let i of path)
+    if (u.typeCheck(aSet[i], "obj")) aSet = aSet[i];
+    else return fallbackData;
+  return aSet[last];
+};
+
 u.mapGetExist = (aSet, ...keys) =>
   keys.reduce((hook, item) => (aSet[item] == undefined ? hook : Object.assign(hook, { [item]: aSet[item] })), {});
 
