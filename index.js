@@ -1147,6 +1147,52 @@ u.promiseAllCompleteSafe = async (...promiseObjs) => {
  * @param {headers} headers
  * @param {fetchOption} fetchSettings
  */
+u.promiseFetchRaw = async (url, method = "GET", headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
+  if (!u.contains(url, "localhost") || url.toLowerCase() !== "about:blank") url = u.url(url);
+  let param = {
+    method,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36",
+    },
+  };
+  param.headers = u.mapMerge(param.headers, headers);
+  param = u.mapMerge(param, fetchSettings);
+  return fetch(url, param)
+    .then(async (response) => {
+      /** clone()/redirect()/arrayBuffer()/formData()/blob()/text()/json() **/
+      let contentType = response.headers.get("content-type");
+      let result =
+        contentType && contentType.indexOf("application/json") !== -1 ? await response.json() : await response.text();
+      if (response.status >= 400) return Promise.reject({ status: response.status, result });
+
+      return {
+        status: response.status,
+        headers: response.headers,
+        body: response.body,
+        result,
+      };
+    })
+    .catch(async (error) => {
+      if (!error.status && !error.msg) {
+        console.log(error);
+        return Promise.reject({ status: 600, msg: "fetch error" });
+      }
+      if (retry > 0)
+        return u.promiseTimeout(
+          () => u.promiseFetchRaw(url, method, headers, fetchSettings, retry - 1, interval),
+          interval
+        );
+      return Promise.reject(error);
+    });
+};
+
+/**
+ *
+ * @param {headers} headers
+ * @param {fetchOption} fetchSettings
+ */
 u.promiseFetchGet = async (url, headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
   if (!u.contains(url, "localhost") || url.toLowerCase() !== "about:blank") url = u.url(url);
   let param = {
