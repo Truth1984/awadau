@@ -166,7 +166,7 @@ u.typeCheck = (obj = undefined, type = undefined) => {
 };
 
 /**
- * @returns {null | object}
+ * @return {null | object}
  */
 u._parseJsonCheck = (string) => {
   let result = null;
@@ -266,7 +266,7 @@ u.toStr = (obj) => {
 };
 
 /**
- * @returns {{message:?string, stack:?string}}
+ * @return {{message:?string, stack:?string}}
  */
 u.errorHandle = (error) => {
   if (u.typeCheck(error, "err")) return { message: error.message, stack: error.stack };
@@ -1146,6 +1146,7 @@ u.promiseAllCompleteSafe = async (...promiseObjs) => {
  *
  * @param {headers} headers
  * @param {fetchOption} fetchSettings
+ * @return {Promise<{status:number, headers:{}, body:{}, result:{} | string}>}
  */
 u.promiseFetchRaw = async (url, method = "GET", headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
   if (!u.contains(url, "localhost") || url.toLowerCase() !== "about:blank") url = u.url(url);
