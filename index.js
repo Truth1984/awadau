@@ -674,9 +674,23 @@ u.mapFilter = (map, func) => {
   return u.mapGetExist(map, ...u.mapKeys(map).filter((key) => func(map[key], key)));
 };
 
+/**
+ * @returns {{path:string[],value:any}[]}
+ */
+u.mapDevGet = (map, keyPattern, _prev = []) => {
+  let result = [];
+  let pattern = u.stringToRegex(keyPattern);
+  for (let i of u.mapKeys(map)) {
+    if (pattern.test(i)) result.push({ path: u.arrayAdd(_prev, i), value: map[i] });
+    if (u.typeCheck(map[i], "map")) result = u.arrayAdd(result, u.mapDevGet(map[i], keyPattern, u.arrayAdd(_prev, i)));
+  }
+  return result;
+};
+
 u.stringToArray = (line, sep = ",") => line.split(sep);
 
-u.stringToRegex = (string) => new RegExp(string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+u.stringToRegex = (string) =>
+  new RegExp(u.typeCheck(string, "regex") ? string : string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
 u.date = (value) => {
   if (!Number.isNaN(Number(value))) return new Date(Number(value));
