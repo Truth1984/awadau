@@ -898,6 +898,7 @@ u.reCommonFast = () => {
     carPlate: /^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领A-Z]{1}[A-Z]{1}[A-Z0-9]{4}[A-Z0-9挂学警港澳]{1}$/,
     chinese: /[\u4E00-\u9FA5]/,
     ipv4: /\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/,
+    iplocal: /(^127\.)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/,
   };
 };
 
@@ -1110,6 +1111,18 @@ u.promiseTryTimes = async (func, tryTimes = 3, tryIntervalSec = -1, logError = f
   });
 };
 
+/**
+ *
+ * @param {(error,remain:number)=>{}} func
+ */
+u.promiseTryTimesInfo = async (func, tryTimes = 3, tryIntervalSec = -1, _error) => {
+  return new Promise((resolve) => resolve(func(_error, tryTimes))).catch(async (error) => {
+    if (tryTimes === 0) return Promise.reject(error);
+    await u.promiseTimeout(() => {}, tryIntervalSec);
+    return u.promiseTryTimesInfo(func, tryTimes - 1, tryIntervalSec, error);
+  });
+};
+
 u.promiseInterval = async (innerFunc, catcher = () => {}, successWait = 3, errorWait = 5) => {
   return (async () => innerFunc())()
     .then(() => u.timeout(() => u.promiseInterval(innerFunc, catcher, successWait, errorWait), successWait))
@@ -1209,34 +1222,7 @@ u.promiseFetchRaw = async (url, method = "GET", headers = {}, fetchSettings = {}
  * @param {fetchOption} fetchSettings
  */
 u.promiseFetchGet = async (url, headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
-  if (!u.contains(url, "localhost") || url.toLowerCase() !== "about:blank") url = u.url(url);
-  let param = {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36",
-    },
-  };
-  param.headers = u.mapMerge(param.headers, headers);
-  param = u.mapMerge(param, fetchSettings);
-  return fetch(url, param)
-    .then(async (response) => {
-      /** clone()/redirect()/arrayBuffer()/formData()/blob()/text()/json() **/
-      let contentType = response.headers.get("content-type");
-      let result =
-        contentType && contentType.indexOf("application/json") !== -1 ? await response.json() : await response.text();
-      return response.status >= 400 ? Promise.reject({ status: response.status, msg: result }) : result;
-    })
-    .catch(async (error) => {
-      if (!error.status && !error.msg) {
-        console.log(error);
-        return Promise.reject({ status: 600, msg: "fetch error" });
-      }
-      if (retry > 0)
-        return u.promiseTimeout(() => u.promiseFetchGet(url, headers, fetchSettings, retry - 1, interval), interval);
-      return Promise.reject(error);
-    });
+  return u.promiseFetchRaw(url, "GET", headers, fetchSettings, retry, interval).then((data) => data.result);
 };
 
 u._jsonToUri = (parameter = {}) => {
@@ -1252,8 +1238,8 @@ u._jsonToUri = (parameter = {}) => {
  * @param {fetchOption} fetchSettings
  */
 u.promiseFetchPost = async (url, parameterURL = {}, headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
-  fetchSettings = u.mapMerge(fetchSettings, { method: "POST", body: u.jsonToString(parameterURL) });
-  return u.promiseFetchGet(url, headers, fetchSettings, retry, interval);
+  fetchSettings = u.mapMerge(fetchSettings, { body: u.jsonToString(parameterURL) });
+  return u.promiseFetchRaw(url, "POST", headers, fetchSettings, retry, interval).then((data) => data.result);
 };
 
 u.promiseFetchPostJson = async (url, parameter = {}) => {
