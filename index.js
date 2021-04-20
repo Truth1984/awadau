@@ -726,9 +726,10 @@ u.randomizeList = (aList) => {
 
 u.randomChoose = (aList, itemNum = 1) => u.randomizeList(aList).slice(aList.length - itemNum);
 
-u.randomPassword = (num = 8, strong = false) => {
+u.randomPassword = (num = 8, strong = false, symbol = false) => {
   let base = "zxcvbnmasdfghjklqwertyuiop1234567890";
-  if (strong) base += "ZXCBVNM,./ASDFGHJKL;'QWERTYUIOP[]-=<>?:|}{+_!@#$%^&*()\\\"";
+  if (strong) base += "ZXCBVNMASDFGHJKLQWERTYUIOP";
+  if (symbol) base += ",./;'[]-=<>?:|}{+_!@#$%^&*()\\\"";
   let result = "";
   for (let i = 0; i < num; i++) {
     result += base[u.genRandom(0, base.length - 1)];
