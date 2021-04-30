@@ -607,7 +607,7 @@ u.mapGetPath = (aSet, path = [], fallbackData = {}) => {
   for (let i of path)
     if (u.typeCheck(aSet[i], "obj")) aSet = aSet[i];
     else return fallbackData;
-  return aSet[last];
+  return aSet[last] === undefined ? fallbackData : aSet[last];
 };
 
 u.mapGetExist = (aSet, ...keys) =>
