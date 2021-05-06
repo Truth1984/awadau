@@ -575,7 +575,7 @@ u._mapMergeDeepHelper = (target, source) => {
   let result = target;
   if (Array.isArray(target) && Array.isArray(source)) return source;
   for (let i of u.mapKeys(source)) {
-    if (source[i] instanceof Object && !(source[i] instanceof Function)) {
+    if (source[i] instanceof Object && !(source[i] instanceof RegExp) && !(source[i] instanceof Function)) {
       if (!(i in target)) {
         result = u.mapMerge(result, { [i]: source[i] });
       } else {
