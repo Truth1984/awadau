@@ -235,6 +235,7 @@ u.repeatValues = (value, times) => {
  */
 u.len = (item) => {
   if (item instanceof Object) return Object.keys(item).length;
+  if (typeof item == "string") return item.length;
   if (item && item.length) return item.length;
   if (Number.isInteger(item)) return item.toString().length;
   return -1;
@@ -896,7 +897,8 @@ u.reCommonFast = () => {
     phone: /^1[3456789]\d{9}$/,
     id: /^[1-9]\d{5}(18|19|([23]\d))\d{2}((0[1-9])|(10|11|12))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/,
     passport: /^(P\d{7}|G\d{7,8}|TH\d{7,8}|S\d{7,8}|A\d{7,8}|L\d{7,8}|\d{9}|D\d+|1[4,5]\d{7})$/,
-    carPlate: /^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领A-Z]{1}[A-Z]{1}[A-Z0-9]{4}[A-Z0-9挂学警港澳]{1}$/,
+    carPlate:
+      /^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领A-Z]{1}[A-Z]{1}[A-Z0-9]{4}[A-Z0-9挂学警港澳]{1}$/,
     chinese: /[\u4E00-\u9FA5]/,
     ipv4: /\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/,
     iplocal: /(^127\.)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/,
@@ -909,11 +911,9 @@ u.reCommon = (key = "") => {
   let help = {
     g: "global match; find all matches rather than stopping after the first match",
     i: "ignore case; if u flag is also enabled, use Unicode case folding",
-    m:
-      "multiline; treat beginning and end characters (^ and $) as working over multiple lines (i.e., match the beginning or end of each line (delimited by \n or \r), not only the very beginning or end of the whole input string)",
+    m: "multiline; treat beginning and end characters (^ and $) as working over multiple lines (i.e., match the beginning or end of each line (delimited by \n or \r), not only the very beginning or end of the whole input string)",
     u: "Unicode; treat pattern as a sequence of Unicode code points",
-    y:
-      "sticky; matches only from the index indicated by the lastIndex property of this regular expression in the target string (and does not attempt to match from any later indexes).",
+    y: "sticky; matches only from the index indicated by the lastIndex property of this regular expression in the target string (and does not attempt to match from any later indexes).",
   };
   return key === "" ? { expression: exp, help: help } : exp[key];
 };
