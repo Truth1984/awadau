@@ -923,7 +923,7 @@ u.reCommon = (key = "") => {
  */
 u.refind = (sentence, regex) => {
   let result = new RegExp(regex).exec(sentence);
-  return result ? result[0] : null;
+  return result != null ? result[0] : null;
 };
 
 /**
