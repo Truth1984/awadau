@@ -707,10 +707,10 @@ u.genDate = (
   second = new Date().getSeconds()
 ) => new Date(year, month - 1, day, hour, minute, second);
 
-u.genRandom = (start, endIn, float = false) => {
+u.genRandom = (start, end, float = false) => {
   if (start === undefined) return Math.random();
-  if (float) return Math.random() * (endIn - start + 1) + start;
-  return Math.floor(Math.random() * (endIn - start + 1)) + start;
+  if (float) return Math.random() * (end - start) + start;
+  return Math.floor(Math.random() * (end - start) + start);
 };
 
 u.randomizeList = (aList) => {
