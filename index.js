@@ -832,19 +832,17 @@ u.dateFormat = (key = "*", dateObject = new Date()) => {
  * @param {{year:number, month:number, day:number, hour:number, minute:number, second:number}} difference
  */
 u.dateAdd = (difference = {}, date = new Date()) => {
-  date = new Date(date);
-  let json = {
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hour: date.getHours(),
-    minute: date.getMinutes(),
-    second: date.getSeconds(),
+  let datelong = new Date(date).getTime();
+  let d = u.mapMerge({ year: 0, month: 0, day: 0, hour: 0, minute: 0, second: 0 }, difference);
+  let calc = {
+    year: 31536000000,
+    month: 2592000000,
+    day: 86400000,
+    hour: 3600000,
+    minute: 60000,
+    second: 1000,
   };
-
-  for (let i of u.mapKeys(difference)) json[i] = json[i] + Number.parseInt(difference[i]);
-
-  return u.dateCurrentParse(json);
+  return u.dateLongToDate(u.mapKeys(calc).reduce((v, key) => v + d[key] * calc[key], datelong));
 };
 
 /**
