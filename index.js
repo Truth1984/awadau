@@ -370,9 +370,24 @@ u.arrayGet = (arr, ...index) =>
 
 u.arrayAdd = (...arr) => [].concat(...arr);
 
-u.arrayMerge = (...arr) => Array.from(new Set(u.arrayAdd(...arr)));
+u.arraySets = (...arr) => Array.from(new Set(u.arrayAdd(...arr)));
 
 u.arrayExtract = (arr, start, end = arr.length) => arr.slice(start, end);
+
+u.arrayMerge = (...arr) => {
+  let maxlen = 0;
+  let result = arr[arr.length - 1];
+  for (let i of arr) maxlen = i.length > maxlen ? i.length : maxlen;
+  for (let i = 0; i < maxlen; i++)
+    if (result[i] == undefined)
+      for (let j = arr.length - 1; j > -1; j--)
+        if (arr[j][i] != undefined) {
+          result[i] = arr[j][i];
+          break;
+        }
+
+  return result;
+};
 
 u.arrayRemove = (arr, items = []) => {
   let result = [];
