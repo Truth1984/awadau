@@ -542,8 +542,13 @@ u.arrayOfMapSelectKeys = (arr, ...keys) => {
   return u.deepCopy(arr).map((i) => u.mapGetExist(i, ...keys));
 };
 
+/** warning: {a:"full str"} contains {a:"str"} */
 u.arrayOfMapSearch = (arr, containedPairs = {}) => {
   return arr.filter((item) => u.contains(item, containedPairs));
+};
+
+u.arrayOfMapSearchStrict = (arr, containedPairs = {}) => {
+  return arr.filter((item) => u.equal(item, containedPairs));
 };
 
 u.arrayOfMapSet = (arr, matchedPairs, modify = {}) => {
