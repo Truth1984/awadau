@@ -402,6 +402,18 @@ u.arrayPopStart = (arr) => arr.shift();
 
 u.arrayToString = (arr, sep = ",") => arr.join(sep);
 
+u.arrayToStringAddFront = (arr, sepPrefix = "") => {
+  let result = "";
+  for (let i of arr) result += sepPrefix + i;
+  return result;
+};
+
+u.arrayToStringAddBack = (arr, sepSuffix = "") => {
+  let result = "";
+  for (let i of arr) result += i + sepSuffix;
+  return result;
+};
+
 u.arrayToMap = (arr1, arr2) => {
   let result = {};
   for (let i in arr1) result[arr1[i]] = arr2[i];
