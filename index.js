@@ -12,21 +12,29 @@ u.ex = {};
  * @param {"TRACE"|"DEBUG"|"INFO"|"WARN"|"ERROR"|"FATAL"} severityThen
  * @param {"TRACE"|"DEBUG"|"INFO"|"WARN"|"ERROR"|"FATAL"} severityCatch
  */
-u.log = async (message, extra = {}, _section, severityThen = "INFO", severityCatch = "ERROR") => {
+u.log = (message, extra = {}, _section, severityThen = "INFO", severityCatch = "ERROR") => {
   let plain = { date: new Date().toLocaleString("en-US", { hour12: false }) };
-  let segment = u.mapMerge(
-    _section ? { _section } : {},
-    { ...extra },
-    u.typeCheck(message, "promise") ? { _promise: true } : {}
-  );
-  return Promise.resolve(message)
-    .then((data) => {
-      return u.mapMerge(plain, { message: data, severity: severityThen, ...segment });
-    })
-    .catch((e) => {
-      return u.mapMerge(plain, { message: u.errorHandle(e), severity: severityCatch, ...segment, error: true });
-    })
-    .then((result) => console.log(u.jsonToString(result, "")));
+  let segment = u.mapMerge(_section ? { _section } : {}, { ...extra });
+
+  if (!u.typeCheck(message, "promise")) {
+    console.log(u.jsonToString(u.mapMerge(plain, { message, severity: severityThen, ...segment }), ""));
+    return Promise.resolve(message);
+  } else {
+    return Promise.resolve(message)
+      .then((data) => {
+        return u.mapMerge(plain, { message: data, severity: severityThen, ...segment, _promise: true });
+      })
+      .catch((e) => {
+        return u.mapMerge(plain, {
+          message: u.errorHandle(e),
+          severity: severityCatch,
+          ...segment,
+          error: true,
+          _promise: true,
+        });
+      })
+      .then((result) => console.log(u.jsonToString(result, "")));
+  }
 };
 
 u.contains = (origin, item) => {
