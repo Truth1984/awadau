@@ -728,6 +728,12 @@ u.mapDevGet = (map, keyPattern, _prev = []) => {
   return result;
 };
 
+u.mapToArray = (map = {}, kvfunc = (k, v) => k + v) => {
+  let result = [];
+  for (let i of u.mapKeys(map)) result.push(kvfunc(i, map[i]));
+  return result;
+};
+
 u.stringToArray = (line, sep = ",") => line.split(sep);
 
 u.stringToRegex = (string) =>
@@ -920,6 +926,46 @@ u.urlEncode = (string) => encodeURIComponent(string);
 
 u.urlDecode = (string) => decodeURIComponent(string);
 
+/**
+ * 
+`{href: "https://abc.com:8080/s?a=1",
+host: "abc.com:8080",
+hostname: "abc.com",
+origin: "https://abc.com:8080",
+param: {a: '1'},
+pathname: "/s",
+port: "8080",
+protocol: "https:",
+search: "?a=1"}`
+ */
+u.urlInfo = (string) => {
+  let url = new URL(string);
+
+  let urlParse = (search) => {
+    if (search == "") return {};
+    search = decodeURIComponent(search);
+    let result = {};
+    search.indexOf("?") > -1 && (search = search.split("?")[1]);
+    u.stringToArray(search, "&").forEach((v) => {
+      let [key, value] = u.stringToArray(v, "=");
+      result[key] = value;
+    });
+    return result;
+  };
+
+  return {
+    protocol: url.protocol,
+    host: url.host,
+    hostname: url.hostname,
+    port: url.port,
+    pathname: url.pathname,
+    search: url.search,
+    origin: url.origin,
+    href: url.href,
+    param: urlParse(url.search),
+  };
+};
+
 u.reCommonFast = () => {
   return {
     hex: /^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/,
@@ -1000,6 +1046,22 @@ u.stringReplace = (sentence, pairs = {}, recursive = true, all = true) => {
   else for (let i in pairs) sentence = sentence.replace(new RegExp(i), pairs[i]);
   return sentence;
 };
+
+u.stringRemoveBefore = (sentence, segment, include = false) => {
+  let index = sentence.indexOf(segment);
+  return index == -1 ? sentence : include ? sentence.substring(index) : sentence.substring(index + segment.length);
+};
+
+u.stringRemoveAfter = (sentence, segment, include = false) => {
+  let index = sentence.lastIndexOf(segment);
+  return index == -1
+    ? sentence
+    : include
+    ? sentence.substring(0, index + segment.length)
+    : sentence.substring(0, index);
+};
+
+u.stringSplitToArray = (string, ...splitters) => string.split(new RegExp(`(${splitters.join("|")})`));
 
 u.stringToJson = (line) => {
   if (u.typeCheck(line, Object)) return line;
