@@ -1089,6 +1089,23 @@ u.stringSymbolNormalize = (chinese) => {
   return u.stringReplace(chinese, pairs, true);
 };
 
+/**
+ * {"a.b":"c"} => {"a":{"b":"c"}}
+ */
+u.transformJson = (keyDotLiterals, sep = ".") => {
+  let kdl = u.stringToJson(keyDotLiterals);
+  return Object.keys(kdl).reduce((acc, key) => {
+    if (key.indexOf(sep) >= 0) {
+      let [parentKey, childKey] = key.split(sep);
+      acc[parentKey] = acc[parentKey] || {};
+      acc[parentKey][childKey] = kdl[key];
+    } else {
+      acc[key] = kdl[key];
+    }
+    return acc;
+  }, {});
+};
+
 u.jsonToString = (map, space = "\t", circularCheck = false) => {
   if (u.isBad(map)) return null;
   if (u.typeCheck(map, "str")) return map;
