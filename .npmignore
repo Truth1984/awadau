@@ -3,3 +3,8 @@ node_modules
 /build
 /dist
 /out
+.prettierrc
+test.js
+webpack.config.js
+jsconfig.json
+.eslintrc.js
