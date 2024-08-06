@@ -867,7 +867,7 @@ u.dateFormat = (key = "*", dateObject = new Date()) => {
     string: dobj.toString(),
     time: dobj.toTimeString(),
     utc: dobj.toUTCString(),
-    plain: u.arrayToString(u.dateCurrent([]), "_"),
+    plain: u.arrayToString(u.dateCurrent([], dobj), "_"),
     long: dobj.getTime(),
   };
 

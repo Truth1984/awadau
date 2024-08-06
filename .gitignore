@@ -32,3 +32,5 @@ yarn-error.log*
 
 personal*
 *.log
+package-lock.json
+bun.lockb
