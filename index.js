@@ -1,5 +1,4 @@
-const fetch = require("isomorphic-fetch"),
-  serialize = require("serialize-javascript"),
+const serialize = require("serialize-javascript"),
   floatFormat = require("float-format"),
   jStringify = require("json-stringify-safe");
 
@@ -180,6 +179,7 @@ u._parseJsonCheck = (string) => {
   let result = null;
   try {
     result = JSON.parse(string);
+    // eslint-disable-next-line no-unused-vars
   } catch (e) {
     return result;
   }
@@ -297,55 +297,6 @@ u.numberToPrecision = (number, percision = 2) => number.toFixed(percision);
 u.numberPrecision = (number) => {
   let temp = number.toString().split(".");
   return temp.length > 1 ? temp[1].length : 0;
-};
-
-u.numberShorten = (num, tofix = 2, languageEn = true) => {
-  let unitLarge = languageEn
-    ? [
-        { value: 1, symbol: "" },
-        { value: 1e3, symbol: "k" },
-        { value: 1e6, symbol: "M" },
-        { value: 1e9, symbol: "G" },
-        { value: 1e12, symbol: "T" },
-        { value: 1e15, symbol: "P" },
-        { value: 1e18, symbol: "E" },
-        { value: 1e21, symbol: "Z" },
-        { value: 1e24, symbol: "Y" },
-      ]
-    : [
-        { value: 1, symbol: "" },
-        { value: 1e4, symbol: "万" },
-        { value: 1e8, symbol: "亿" },
-        { value: 1e12, symbol: "兆" },
-        { value: 1e16, symbol: "京" },
-        { value: 1e20, symbol: "垓" },
-        { value: 1e24, symbol: "秭" },
-      ];
-  let unitSmall = [
-    { value: 1, symbol: "" },
-    { value: 1e-3, symbol: "m" },
-    { value: 1e-6, symbol: "µ" },
-    { value: 1e-9, symbol: "n" },
-    { value: 1e-12, symbol: "p" },
-    { value: 1e-15, symbol: "f" },
-    { value: 1e-18, symbol: "a" },
-    { value: 1e-21, symbol: "z" },
-    { value: 1e-24, symbol: "y" },
-  ];
-  let regex = /\.0+$|(\.[0-9]*[1-9])0+$/;
-  let i;
-  if (num === 0) return 0;
-  if (1 > num && num > -1) {
-    for (i = 0; i < unitSmall.length; i++) {
-      if (Math.abs(num) >= unitSmall[i].value) break;
-    }
-    return (num / unitSmall[i].value).toFixed(tofix).replace(regex, "$1") + unitSmall[i].symbol;
-  } else {
-    for (i = unitLarge.length - 1; i > 0; i--) {
-      if (Math.abs(num) >= unitLarge[i].value) break;
-    }
-    return (num / unitLarge[i].value).toFixed(tofix).replace(regex, "$1") + unitLarge[i].symbol;
-  }
 };
 
 u.float = (number) => floatFormat(number);
@@ -969,21 +920,8 @@ u.urlInfo = (string) => {
 u.reCommonFast = () => {
   return {
     hex: /^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/,
-    date: /^(?:(?!0000)[0-9]{4}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1[0-9]|2[0-8])|(?:0[13-9]|1[0-2])-(?:29|30)|(?:0[13578]|1[02])-31)|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)$/,
     email: /^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6})$/,
-    passwordcomplex: /(?=(.*[0-9]))(?=.*[!@#$%^&*()\\[\]{}\-_+=~`|:;"'<>,./?])(?=.*[a-z])(?=(.*[A-Z]))(?=(.*)).{8,}/,
-    passwordmoderate: /(?=(.*[0-9]))((?=.*[A-Za-z0-9])(?=.*[A-Z])(?=.*[a-z]))^.{8,}$/,
-    passwordsimple: /.{6,}/,
-    username: /[-_a-zA-Z0-9]{6,}/,
-    qq: /[1-9][0-9]{4,10}$/,
-    wx: /^[a-zA-Z]([-_a-zA-Z0-9]{5,19})$/,
-    zipcode: /[1-9]\d{5}$/,
-    phone: /^1[3456789]\d{9}$/,
-    id: /^[1-9]\d{5}(18|19|([23]\d))\d{2}((0[1-9])|(10|11|12))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/,
-    passport: /^(P\d{7}|G\d{7,8}|TH\d{7,8}|S\d{7,8}|A\d{7,8}|L\d{7,8}|\d{9}|D\d+|1[4,5]\d{7})$/,
-    carPlate:
-      /^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领A-Z]{1}[A-Z]{1}[A-Z0-9]{4}[A-Z0-9挂学警港澳]{1}$/,
-    chinese: /[\u4E00-\u9FA5]/,
+    chinese: /[\u4E00-\u9FA5\u3000-\u303F\uff00-\uffef]+/,
     ipv4: /\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/,
     iplocal: /(^127\.)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/,
   };
@@ -1144,42 +1082,6 @@ u.url = (url) => {
   return u.refind(url, "^http") ? url : u.refind(url, "^www") ? "https://" + url : "https://www." + url;
 };
 
-u.join = {};
-
-u.join.arr1 = (arr1, arr2) => {
-  return arr1.filter((item) => !u.contains(arr2, item));
-};
-
-u.join.arr2 = (arr1, arr2) => {
-  return arr1.filter((item) => u.contains(arr2, item));
-};
-
-u.join.arr13 = (arr1, arr2) => {
-  let same = u.join.arr2(arr1, arr2);
-  return u.arrayAdd(arr1, arr2).filter((item) => !u.contains(same, item));
-};
-
-u.join.map1 = (map1, map2) => {
-  map1 = u.deepCopy(map1);
-  u.mapKeys(map1).map((i) => {
-    if (u.equal(map1[i], map2[i])) delete map1[i];
-  });
-  return map1;
-};
-
-u.join.map2 = (map1, map2) => {
-  map1 = u.deepCopy(map1);
-  u.mapKeys(map1).map((i) => {
-    if (!u.equal(map1[i], map2[i])) delete map1[i];
-  });
-  return map1;
-};
-
-u.join.map13 = (map1, map2) => {
-  let same = u.join.map2(map1, map2);
-  return u.join.map1(u.mapMerge(map1, map2), same);
-};
-
 // eslint-disable-next-line no-unused-vars
 u.forReverse = (obj, callback = (item, index) => {}) => {
   for (let i = u.len(obj) - 1; i > -1; i--) callback(obj[i], i);
@@ -1298,10 +1200,28 @@ u.promiseFetchRaw = async (url, method = "GET", headers = {}, fetchSettings = {}
   let param = {
     method,
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
+      "Content-Type": "application/json;charset=UTF-8",
+      Accept: "application/json, text/plain, */*",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "sec-ch-ua": '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"macOS"',
+      "sec-fetch-site": "none",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      DNT: "1",
+      Connection: "keep-alive",
     },
+    mode: "cors",
+    cache: "default",
+    credentials: "same-origin",
+    redirect: "follow",
+    referrer: "client",
   };
   param.headers = u.mapMerge(param.headers, headers);
   param = u.mapMerge(param, fetchSettings);
