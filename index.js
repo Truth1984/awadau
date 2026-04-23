@@ -12,578 +12,308 @@ u.ex = {};
  * @param {"TRACE"|"DEBUG"|"INFO"|"WARN"|"ERROR"|"FATAL"} severityCatch
  */
 u.log = (message, extra = {}, _section, severityThen = "INFO", severityCatch = "ERROR") => {
-  let plain = { date: new Date().toLocaleString("en-US", { hour12: false }) };
-  let segment = u.mapMerge(_section ? { _section } : {}, { ...extra });
+  const plain = { date: new Date().toLocaleString("en-US", { hour12: false }) };
+  const segment = { ...(_section && { _section }), ...extra };
+  const isPromise = message instanceof Promise;
 
-  if (!u.typeCheck(message, "promise")) {
-    console.log(u.jsonToString(u.mapMerge(plain, { message, severity: severityThen, ...segment }), ""));
+  const buildLog = (msg, severity, error = false) => {
+    const log = { ...plain, message: msg, severity, ...segment };
+    if (isPromise) log._promise = true;
+    if (error) log.error = true;
+    console.log(u.jsonToString(log, ""));
+    return msg;
+  };
+
+  if (!isPromise) {
+    buildLog(message, severityThen);
     return Promise.resolve(message);
-  } else {
-    return Promise.resolve(message)
-      .then((data) => {
-        return u.mapMerge(plain, { message: data, severity: severityThen, ...segment, _promise: true });
-      })
-      .catch((e) => {
-        return u.mapMerge(plain, {
-          message: u.errorHandle(e),
-          severity: severityCatch,
-          ...segment,
-          error: true,
-          _promise: true,
-        });
-      })
-      .then((result) => console.log(u.jsonToString(result, "")));
   }
+
+  return message
+    .then((data) => buildLog(data, severityThen))
+    .catch((e) => {
+      const errorMsg = e instanceof Error ? { message: e.message, stack: e.stack } : e;
+      return buildLog(errorMsg, severityCatch, true);
+    });
 };
 
 u.contains = (origin, item) => {
   if (origin === undefined || item === undefined) return false;
-  let simpleCheck = (obj) => {
-    if (u.typeCheck(obj, "object")) {
-      if (u.typeCheck(obj, "map")) return "map";
-      if (u.typeCheck(obj, "array")) return "array";
-      return "object";
-    }
+
+  const getType = (obj) => {
+    if (u.typeCheck(obj, "map")) return "map";
+    if (u.typeCheck(obj, "array")) return "array";
     return typeof obj;
   };
-  // number, string, map, array, object, boolean
-  let originType = simpleCheck(origin);
-  let itemType = simpleCheck(item);
-  if (["number", "string", "map", "array"].indexOf(originType) == -1) originType = originType.toString();
-  if (["number", "string", "map", "array"].indexOf(itemType) == -1) itemType = itemType.toString();
 
-  if (originType == "number") {
-    if (itemType == "map" || itemType == "array") {
-      let itemValue = u.mapValues(item);
-      return itemValue.filter((value) => origin.toString().indexOf(value) !== -1).length == itemValue.length;
+  const originType = getType(origin);
+  const itemType = getType(item);
+
+  // Array checks
+  if (originType === "array") {
+    if (itemType === "array") {
+      return item.every((i) => u.contains(origin, i));
     }
-    // item : number | string
-    return origin.toString().indexOf(item) !== -1;
+    if (itemType === "map") {
+      return origin.some((i) => u.equal(i, item));
+    }
+    return origin.some((i) => u.equal(i, item));
   }
 
-  if (originType == "array") {
-    if (itemType == "map") {
-      return origin.filter((i) => u.equal(i, item)).length > 0;
+  // Map checks
+  if (originType === "map") {
+    if (itemType === "map") {
+      return Object.keys(item).every((key) => u.contains(origin[key], item[key]));
     }
-
-    if (itemType == "array") {
-      return item.filter((i) => u.contains(origin, i)).length == item.length;
+    if (itemType === "array") {
+      return item.every(
+        (val) => Object.keys(origin).some((k) => u.equal(k, val)) || Object.values(origin).some((v) => u.equal(v, val))
+      );
     }
-    //item : number | string
-    return origin.indexOf(item) !== -1;
+    return Object.keys(origin).some((k) => u.equal(k, item)) || Object.values(origin).some((v) => u.equal(v, item));
   }
 
-  if (originType == "map") {
-    if (itemType == "map") {
-      for (let i of u.mapKeys(item)) if (!u.contains(origin[i], item[i])) return false;
-      return true;
-    }
-    if (itemType == "array") return u.contains(u.mapKeys(origin), item) || u.contains(u.mapValues(origin), item);
-    //item : number | string
-    return u.mapKeys(origin).indexOf(item) !== -1 || u.mapValues(origin).indexOf(item) !== -1;
+  // Primitive checks
+  if (itemType === "array" || itemType === "map") {
+    const itemValues = Object.values(item);
+    return itemValues.every((val) => origin.toString().includes(val.toString()));
   }
 
-  if (itemType == "map" || itemType == "array") {
-    let itemValue = u.mapValues(item);
-    return itemValue.filter((value) => origin.toString().indexOf(value) !== -1).length == itemValue.length;
-  }
-  // item : number | string
-  return origin.toString().indexOf(item) !== -1;
+  return origin.toString().includes(item.toString());
 };
 
 u.equal = (item1, item2) => {
   if (item1 === item2) return true;
-  if (u.typeCheck(item1) !== u.typeCheck(item2)) return false;
-  if (u.typeCheck(item1, "arr")) return item1.every((ele, index) => u.equal(ele, item2[index]));
-  if (u.typeCheck(item1, "string") || u.typeCheck(item1, "regex")) return String(item1) === String(item2);
-  if (u.typeCheck(item1, "promise"))
-    return u.promiseAllCompleteSafe(item1, item2).then((data) => {
-      return u.equal(data[0], data[1]);
-    });
+
+  if (u.typeCheck(item1, "arr") && u.typeCheck(item2, "arr")) {
+    if (item1.length !== item2.length) return false;
+    return item1.every((ele, index) => u.equal(ele, item2[index]));
+  }
+
+  if (u.typeCheck(item1, "string") && u.typeCheck(item2, "string")) return item1 === item2;
+
+  if (u.typeCheck(item1, "regex") && u.typeCheck(item2, "regex"))
+    return item1.source === item2.source && item1.flags === item2.flags;
+
+  if (u.typeCheck(item1, "promise") && u.typeCheck(item2, "promise"))
+    return Promise.all([item1, item2]).then(([v1, v2]) => u.equal(v1, v2));
+
+  if (u.typeCheck(item1, "object") && u.typeCheck(item2, "object")) {
+    const keys1 = Object.keys(item1);
+    const keys2 = Object.keys(item2);
+    if (keys1.length !== keys2.length) return false;
+    return keys1.every((key) => key in item2 && u.equal(item1[key], item2[key]));
+  }
+
   return JSON.stringify(item1) === JSON.stringify(item2);
 };
 
 /**
- * @param {"null" | "udf" | "nan" | "str" | "num" | "bool" | "arr" | "obj" | "map" | "func" | "asyncfunc" | "obj" | "date" | "promise" | "regex" | "class" | "err" } type
+ * @param {"null" | "undefined" | "udf" | "nan" | "str" | "string" | "num" | "number" | "bool" | "boolean" | "arr" | "array" | "obj" | "object" | "map" | "dict" | "func" | "function" | "syncfunc" | "async" | "asyncfunc" | "promise" | "date" | "regex" | "regexp" | "error" | "err" | "class" | "symbol"} type
  */
-u.typeCheck = (obj = undefined, type = undefined) => {
+u.typeCheck = (obj, type) => {
   if (type === undefined) return typeof obj;
   if (Number.isNaN(type)) type = "nan";
   if (typeof type === "string") type = type.toLowerCase();
-  switch (type) {
-    case null:
-    case "null":
-      return obj === null;
-    case "undefined":
-    case "udf":
-      return obj === undefined;
-    case "nan":
-      return isNaN(obj);
-    case String:
-    case "str":
-    case "string":
-    case "":
-      return typeof obj === "string";
-    case Number:
-    case "num":
-    case "number":
-      return typeof obj === "number";
-    case Boolean:
-    case "bool":
-    case "boolean":
-      return typeof obj === "boolean";
-    case Array:
-    case "arr":
-    case "array":
-      return Array.isArray(obj);
-    case Object:
-    case "obj":
-    case "object":
-      return obj instanceof Object;
-    case Map:
-    case "map":
-    case "dictionary":
-    case "dict":
-      return obj && obj.constructor == {}.constructor;
-    case Function:
-    case "func":
-    case "function":
-      return obj instanceof Function;
-    case "asyncfunc":
-    case "async":
-      return obj instanceof Function && obj.constructor.name === "AsyncFunction";
-    case Promise:
-    case "promise":
-      return obj && obj.then instanceof Function;
-    case Date:
-    case "date":
-      return obj instanceof Date;
-    case RegExp:
-    case "regex":
-    case "regexp":
-      return obj instanceof RegExp;
-    case "err":
-    case "error":
-      return obj instanceof Error;
-    case "class":
-      return typeof obj === "function" && /^\s*class\s+/.test(obj.toString());
-    default:
-      return;
-  }
-};
 
-/**
- * @return {null | object}
- */
-u._parseJsonCheck = (string) => {
-  let result = null;
-  try {
-    result = JSON.parse(string);
-    // eslint-disable-next-line no-unused-vars
-  } catch (e) {
-    return result;
-  }
-  return result;
+  const isAsync = (fn) => {
+    try {
+      return fn instanceof Function && fn.constructor.name === "AsyncFunction";
+    } catch {
+      return false;
+    }
+  };
+
+  const isClass = (fn) => {
+    try {
+      return typeof fn === "function" && /^class\s/.test(fn.toString());
+    } catch {
+      return false;
+    }
+  };
+
+  const checks = {
+    null: () => obj === null,
+    undefined: () => obj === undefined,
+    udf: () => obj === undefined,
+    nan: () => Number.isNaN(obj),
+    str: () => typeof obj === "string",
+    string: () => typeof obj === "string",
+    num: () => typeof obj === "number",
+    number: () => typeof obj === "number",
+    bool: () => typeof obj === "boolean",
+    boolean: () => typeof obj === "boolean",
+    arr: () => Array.isArray(obj),
+    array: () => Array.isArray(obj),
+    obj: () => obj !== null && typeof obj === "object",
+    object: () => obj !== null && typeof obj === "object",
+    map: () =>
+      obj !== null && typeof obj === "object" && Object.getPrototypeOf(obj) === Object.prototype && !Array.isArray(obj),
+    dict: () =>
+      obj !== null && typeof obj === "object" && Object.getPrototypeOf(obj) === Object.prototype && !Array.isArray(obj),
+    func: () => obj instanceof Function && !isClass(obj),
+    function: () => obj instanceof Function && !isClass(obj),
+    syncfunc: () => obj instanceof Function && !isAsync(obj) && !isClass(obj),
+    async: () => isAsync(obj),
+    asyncfunc: () => isAsync(obj),
+    promise: () => obj instanceof Promise,
+    date: () => obj instanceof Date,
+    regex: () => obj instanceof RegExp,
+    regexp: () => obj instanceof RegExp,
+    error: () => obj instanceof Error,
+    err: () => obj instanceof Error,
+    class: () => isClass(obj),
+    symbol: () => typeof obj === "symbol",
+  };
+
+  return checks[type]?.() ?? undefined;
 };
 
 u.stringCheckType = (string = "", type = "*") => {
+  string = String(string).trim();
   if (typeof type === "string") type = type.toLowerCase();
+
   switch (type) {
     case "*":
       return true;
+
     case Number:
     case "num":
     case "number":
-      return !u.isBad(Number(string), NaN);
+      if (string === "") return false;
+      return !isNaN(Number(string)) && isFinite(Number(string));
+
     case Array:
     case "arr":
     case "array":
-      return Array.isArray(u._parseJsonCheck(string));
+      if (string === "") return false;
+      try {
+        const parsed = JSON.parse(string);
+        return Array.isArray(parsed);
+      } catch {
+        return false;
+      }
+
     case Map:
     case "map":
     case Object:
     case "obj":
     case "object":
-      return u._parseJsonCheck(string) instanceof Object;
+      if (string === "" || string === "null") return false;
+      try {
+        const parsed = JSON.parse(string);
+        return typeof parsed === "object" && parsed !== null;
+      } catch {
+        return false;
+      }
+
     case Boolean:
     case "boolean":
     case "bool":
-      return string.toString().toLowerCase() === "true" || string.toString().toLowerCase() === "false";
+      return string === "true" || string === "false" || string === "1" || string === "0";
+
     case Date:
     case "date":
-      return new Date(string) != "Invalid Date";
+      if (string === "") return false;
+      return !isNaN(new Date(string).getTime());
 
     default:
       if (u.typeCheck(type, "regex")) return type.test(string);
-      if (u.typeCheck(type, Function)) return type(string) || false;
-      if (u.isBad(u.reCommon(type))) return false;
-      return u.reCommon(type).test(string);
+      if (u.typeCheck(type, "function")) return !!type(string);
+      return false;
   }
-};
-
-u.stringConvertType = (string = "") => {
-  if (u._parseJsonCheck(string)) return u.stringToJson(string);
-  if (u.stringCheckType(string, "bool")) return string.toString().toLowerCase() === "true";
-  if (u.stringCheckType(string, "date")) return new Date(string);
-  if (!isNaN(u.float(string))) return u.float(string);
-  return string;
-};
-
-u.repeatValues = (value, times) => {
-  let result = value;
-  while (times > 1) {
-    result += value;
-    times -= 1;
-  }
-  return result;
 };
 
 /**
  * @return -1 if item is bad / float
  */
 u.len = (item) => {
-  if (item instanceof Object) return Object.keys(item).length;
-  if (typeof item == "string") return item.length;
-  if (item && item.length) return item.length;
-  if (Number.isInteger(item)) return item.toString().length;
+  if (item == null) return -1;
+  if (typeof item.size === "number") return item.size;
+  if (typeof item.length === "number") return item.length;
+  if (typeof item === "object") return Object.keys(item).length;
+  if (Number.isInteger(item)) return String(Math.abs(item)).length;
   return -1;
-};
-
-u.isBad = (item, badType = [null, undefined]) => {
-  badType = Array.isArray(badType) ? badType : [badType];
-  for (let i of badType) {
-    let result = u.typeCheck(item, i + "");
-    if (u.typeCheck(result, "undefined") && item === i) return true;
-    if (result) return true;
-  }
-  return false;
-};
-
-u.isBadAssign = (item, elseValue, badType = [null, undefined]) => {
-  return u.isBad(item, badType) ? elseValue : item;
-};
-
-/**
- * @return {"" | string} if obj is undefined / null / NaN
- */
-u.toStr = (obj) => {
-  if (u.typeCheck(obj) === "object" || u.typeCheck(obj, Promise)) return u.jsonToString(obj);
-  // bad
-  if (u.isBad(obj, [undefined, null, NaN])) return "";
-  //boolean class function
-  return obj + "";
-};
-
-/**
- * @return {{message:?string, stack:?string}}
- */
-u.errorHandle = (error) => {
-  if (u.typeCheck(error, "err")) return { message: error.message, stack: error.stack };
-  return error;
 };
 
 u.int = (number) => Number.parseInt(number);
 
-u.hex = (number, base = 16, fix = 1) => {
-  let result = Number(number).toString(base).toUpperCase();
-  if (u.len(result) < fix) result = u.repeatValues("0", fix - u.len(result)) + result;
-  return result;
-};
+u.hex = (number, base = 16, fix = 1) => number.toString(base).toUpperCase().padStart(fix, "0");
 
 u.hexToInt = (number, base = 16) => parseInt(number, base);
 
 u.numberToPrecision = (number, percision = 2) => number.toFixed(percision);
 
-u.numberPrecision = (number) => {
-  let temp = number.toString().split(".");
-  return temp.length > 1 ? temp[1].length : 0;
-};
-
 u.float = (number) => floatFormat(number);
 
 u.floatCompare = (f1, f2, precision) => floatFormat.compare(f1, f2, precision);
 
-u.productList = (...lists) => {
-  lists.forEach((value, index, arr) => {
-    arr[index] = u.typeCheck(value, Array) ? value : [value];
-  });
-  return lists.reduce(
-    (accumulator, value) => {
-      let temp = [];
-      accumulator.forEach((a0) => {
-        value.forEach((a1) => {
-          temp.push(a0.concat(a1));
-        });
-      });
-      return temp;
-    },
-    [[]]
-  );
+u.arrayGet = (arr, ...idx) => {
+  const out = new Array(idx.length);
+  for (let i = 0; i < idx.length; i++) out[i] = arr[idx[i]];
+  return out;
 };
 
-u.arrayGet = (arr, ...index) =>
-  index.reduce((hook, item) => {
-    hook.push(arr[item]);
-    return hook;
-  }, []);
+u.arrayAdd = (...arr) => arr.flat();
 
-u.arrayAdd = (...arr) => [].concat(...arr);
-
-u.arraySets = (...arr) => Array.from(new Set(u.arrayAdd(...arr)));
+u.arraySets = (...arr) => [...new Set(arr.flat())];
 
 u.arrayExtract = (arr, start, end = arr.length) => arr.slice(start, end);
 
-u.arrayMerge = (...arr) => {
-  let maxlen = 0;
-  let result = arr[arr.length - 1];
-  for (let i of arr) maxlen = i.length > maxlen ? i.length : maxlen;
-  for (let i = 0; i < maxlen; i++)
-    if (result[i] == undefined)
-      for (let j = arr.length - 1; j > -1; j--)
-        if (arr[j][i] != undefined) {
-          result[i] = arr[j][i];
-          break;
-        }
-
-  return result;
-};
-
 u.arrayRemove = (arr, items = []) => {
-  let result = [];
-  if (!u.typeCheck(items, "arr")) items = [items];
-  for (let i of arr) if (!u.contains(items, i)) result.push(i);
-  return result;
+  const toRemove = Array.isArray(items) ? items : [items];
+  const canon = (v) => {
+    if (v === null) return "null";
+    if (typeof v !== "object") return JSON.stringify(v);
+    return JSON.stringify(v, Object.keys(v).sort());
+  };
+  const removeSet = new Set(toRemove.map(canon));
+  return arr.filter((v) => !removeSet.has(canon(v)));
 };
 
 u.arrayPopEnd = (arr) => arr.pop();
 
 u.arrayPopStart = (arr) => arr.shift();
 
-u.arrayToString = (arr, sep = ",") => arr.join(sep);
-
-u.arrayToStringAddFront = (arr, sepPrefix = "") => {
-  let result = "";
-  for (let i of arr) result += sepPrefix + i;
-  return result;
-};
-
-u.arrayToStringAddBack = (arr, sepSuffix = "") => {
-  let result = "";
-  for (let i of arr) result += i + sepSuffix;
-  return result;
-};
+u.arrayToString = (arr, sep = ",", front = "", back = "") => front + arr.join(sep) + back;
 
 u.arrayToMap = (arr1, arr2) => {
   let result = {};
-  for (let i in arr1) result[arr1[i]] = arr2[i];
+  for (let i = 0; i < arr1.length; i++) result[arr1[i]] = arr2[i];
   return result;
 };
 
-u.arrayReplace = (arr, name, ...items) => {
-  let index = 0;
-  let result = [];
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i] === name) {
-      result = result.concat(arr.slice(index, i), ...items);
-      index = i + 1;
-    }
-  }
-  result = result.concat(arr.slice(index, arr.length));
-  return result;
-};
-
-/** discard if no primary present */
-u.arrayofMapMergeSelf = (aom, primaryKey) => {
-  let result = {};
-  for (let i of aom) {
-    let ipk = i[primaryKey];
-    if (ipk == undefined) continue;
-    result[ipk] = u.mapMerge(result[ipk], i);
-  }
-  return u.mapValues(result);
-};
-
-/** display pre-discard and pre-merged result */
-u.arrayofMapMergeSelfLeftOver = (aom, primaryKey) => {
-  let result = { undefined: [] };
-  let tmpresult = {};
-  for (let i of aom) {
-    let ipk = i[primaryKey];
-    if (ipk == undefined) {
-      result[undefined].push(i);
-      continue;
-    }
-    if (tmpresult[ipk] == undefined) tmpresult[ipk] = i;
-    else if (result[ipk] == undefined) result[ipk] = [tmpresult[ipk], i];
-    else result[ipk].push(i);
-  }
-  return result;
-};
-
-/**
- * 1 : a - b - ( a U b )
- *
- * call arrayofMapMergeSelf to merge duplicated result in aom1 and aom2
- *
- * exmaple:
- *
- * u.arrayOfMapLeftOuterJoin([{b:33,o:18},{c:12,b:15},{c:55,k:333}],[{ba:33,d:12},{c:15,g:32}],"b","ba")
- *
- * [{c: 12, b: 15}, {c: 55, k: 333}]
- */
-u.arrayOfMapLeftOuterJoin = (aom1, aom2, pkey1, pkey2) => {
-  if (pkey2 == undefined) pkey2 = pkey1;
-  let rightResult = {}; // key:[value]
-  for (let i of aom2) {
-    let ipk = i[pkey2];
-    if (ipk == undefined) continue;
-    if (rightResult[ipk] == undefined) rightResult[ipk] = [];
-    rightResult[ipk].push(i);
-  }
-  let result = [];
-  for (let i of aom1) {
-    let ipk = i[pkey1];
-    if (rightResult[ipk] == undefined) result.push(i);
-  }
-  return result;
-};
-
-/**
- * 1 + 2 : a - b + ( a U b )
- *
- * call arrayofMapMergeSelf to merge duplicated result in aom1 and aom2
- *
- * exmaple:
- *
- * u.arrayOfMapLeftJoin([{b:33,o:18},{c:12,b:15},{c:55,k:333}],[{ba:33,d:12},{c:15,g:32}],"b","ba")
- *
- * [{b: 33, o: 18, d: 12}, {c: 12, b: 15}, {c: 55, k: 333}]
- */
-u.arrayOfMapLeftJoin = (aom1, aom2, pkey1, pkey2) => {
-  if (pkey2 == undefined) pkey2 = pkey1;
-  let rightResult = {}; // key:[value]
-  for (let i of aom2) {
-    let ipk = i[pkey2];
-    if (ipk == undefined) continue;
-    if (rightResult[ipk] == undefined) rightResult[ipk] = [];
-    rightResult[ipk].push(i);
-  }
-  let result = [];
-  for (let i of aom1) {
-    let ipk = i[pkey1];
-    if (rightResult[ipk] == undefined) {
-      result.push(i);
-      continue;
-    }
-    for (let j of rightResult[ipk]) result.push(u.mapMerge(i, u.mapGetExcept(j, pkey2)));
-  }
-  return result;
-};
-
-/**
- * 2 : ( a U b )
- *
- * call arrayofMapMergeSelf to merge duplicated result in aom1 and aom2
- *
- * exmaple:
- *
- * u.arrayOfMapInnerJoin([{b:33,o:18},{c:12,b:15},{c:55,k:333}],[{ba:33,d:12},{c:15,g:32}],"b","ba")
- *
- * [{b: 33, o: 18, d: 12}]
- */
-u.arrayOfMapInnerJoin = (aom1, aom2, pkey1, pkey2) => {
-  if (pkey2 == undefined) pkey2 = pkey1;
-  let rightResult = {}; // key:[value]
-  for (let i of aom2) {
-    let ipk = i[pkey2];
-    if (ipk == undefined) continue;
-    if (rightResult[ipk] == undefined) rightResult[ipk] = [];
-    rightResult[ipk].push(i);
-  }
-  let result = [];
-  for (let i of aom1) {
-    let ipk = i[pkey1];
-    if (rightResult[ipk] == undefined) continue;
-    for (let j of rightResult[ipk]) result.push(u.mapMerge(i, u.mapGetExcept(j, pkey2)));
-  }
-  return result;
-};
-
-u.arrayOfMapSelectKeys = (arr, ...keys) => {
-  return u.deepCopy(arr).map((i) => u.mapGetExist(i, ...keys));
-};
-
-/** warning: {a:"full str"} contains {a:"str"} */
-u.arrayOfMapSearch = (arr, containedPairs = {}) => {
-  return arr.filter((item) => u.contains(item, containedPairs));
-};
-
-u.arrayOfMapSearchStrict = (arr, containedPairs = {}) => {
-  return arr.filter((item) => u.equal(item, containedPairs));
-};
-
-u.arrayOfMapSet = (arr, matchedPairs, modify = {}) => {
-  let darr = u.deepCopy(arr);
-  for (let i of darr) if (u.contains(i, matchedPairs)) i = u.mapMergeDeep(i, modify);
-  return darr;
-};
-
-u.arrayOfMapFindPerform = async (arr, matchedPairs = {}, action = () => {}) => {
-  let darr = u.deepCopy(arr);
-  for (let i of darr) if (u.contains(i, matchedPairs)) i = await action(i);
-  return darr;
-};
+u.arrayOfMapSearch = (arr, pair = {}) => arr.filter((item) => u.contains(item, pair));
 
 u.arrayOfMapSort = (arr, target, asc = true) => {
-  // file deepcode ignore NoZeroReturnedInSort: <less or equal>
-  if (asc) return arr.sort((a, b) => (a[target] <= b[target] ? -1 : 1));
-  return arr.sort((a, b) => (a[target] <= b[target] ? 1 : -1));
-};
-
-u.arrayOfMapToMap = (aom = [], keyTarget, valueTarget) => {
-  let result = {};
-  if (valueTarget == undefined) for (let i of aom) result[i[keyTarget]] = u.mapGetExcept(i, keyTarget);
-  else for (let i of aom) result[i[keyTarget]] = i[valueTarget];
-
-  return result;
+  return arr.sort((a, b) => {
+    const diff = a[target] < b[target] ? -1 : a[target] > b[target] ? 1 : 0;
+    return asc ? diff : -diff;
+  });
 };
 
 u.arrayFlatten = (arr, level = Infinity) => arr.flat(level);
 
-u.arrayPerform = (arr, callback = () => {}) => {
-  let array = Array.from(arr);
-  for (let i in array) array[i] = callback(array[i]);
-  return array;
-};
-
-u.arrayPerformPromise = async (arr, callback = async () => {}) => {
-  let darr = u.deepCopy(arr);
-  for (let i of darr) i = await callback(i);
-};
-
-u.mapMerge = (...maps) => maps.reduce((hook, item) => Object.assign(hook, item), {});
-
-u._mapMergeDeepHelper = (target, source) => {
-  let result = target;
-  if (Array.isArray(target) && Array.isArray(source)) return source;
-  for (let i of u.mapKeys(source)) {
-    if (source[i] instanceof Object && !(source[i] instanceof RegExp) && !(source[i] instanceof Function)) {
-      if (!(i in target)) {
-        result = u.mapMerge(result, { [i]: source[i] });
-      } else {
-        result[i] = u._mapMergeDeepHelper(target[i], source[i]);
-      }
-    } else {
-      result = u.mapMerge(result, { [i]: source[i] });
-    }
-  }
-  return result;
-};
+u.mapMerge = (...maps) => Object.assign({}, ...maps);
 
 u.mapMergeDeep = (...sets) => {
-  let result = {};
-  for (let i of sets) result = u._mapMergeDeepHelper(result, i);
-  return result;
+  const isPlainObject = (obj) =>
+    obj instanceof Object && !(obj instanceof RegExp) && !(obj instanceof Function) && !Array.isArray(obj);
+
+  const merge = (target, source) => {
+    if (Array.isArray(source)) return source;
+
+    for (const key in source) {
+      if (isPlainObject(source[key]) && isPlainObject(target[key])) {
+        target[key] = merge(target[key], source[key]);
+      } else {
+        target[key] = source[key];
+      }
+    }
+    return target;
+  };
+
+  return sets.reduce((acc, set) => merge(acc, set), {});
 };
 
 u.mapEntries = (aSet) => Object.entries(aSet);
@@ -592,69 +322,27 @@ u.mapKeys = (aSet) => Object.keys(aSet);
 
 u.mapValues = (aSet) => Object.values(aSet);
 
-u.mapGet = (aSet, ...keys) => keys.reduce((hook, item) => Object.assign(hook, { [item]: aSet[item] }), {});
-
-u.mapGetPath = (aSet, path = [], fallbackData = {}) => {
-  let last = path.pop();
-  for (let i of path)
-    if (u.typeCheck(aSet[i], "obj")) aSet = aSet[i];
-    else return fallbackData;
-  return aSet[last] === undefined ? fallbackData : aSet[last];
+u.mapGet = (aSet, ...keys) => {
+  const r = {};
+  for (let i = 0, n = keys.length; i < n; ++i) r[keys[i]] = aSet[keys[i]];
+  return r;
 };
 
-u.mapGetExist = (aSet, ...keys) =>
-  keys.reduce((hook, item) => (aSet[item] == undefined ? hook : Object.assign(hook, { [item]: aSet[item] })), {});
-
-u.mapGetExcept = (aSet, ...keys) =>
-  u.mapKeys(aSet).reduce((hook, key) => (u.contains(keys, key) ? hook : Object.assign(hook, { [key]: aSet[key] })), {});
-
-u.mapRemove = (aSet = {}, ...path) => {
-  let result = u.deepCopy(aSet);
-  if (u.len(path) < 2) {
-    delete result[[...path]];
-    return result;
+u.mapGetExist = (aSet, ...keys) => {
+  const r = {};
+  for (let i = 0; i < keys.length; ++i) {
+    const v = aSet[keys[i]];
+    if (v !== undefined) r[keys[i]] = v;
   }
-  let temp = result;
-  for (let i = 0; i < path.length - 1; i++) {
-    temp = temp[path[i]];
-    if (temp === undefined) return aSet;
+  return r;
+};
+
+u.mapGetExcept = (obj, ...exclude) => {
+  const skip = new Set(exclude);
+  const result = {};
+  for (const key of Object.keys(obj)) {
+    if (!skip.has(key)) result[key] = obj[key];
   }
-  delete temp[path[path.length - 1]];
-  return result;
-};
-
-u.mapValuesPerform = (aSet = {}, callback = () => {}) => {
-  for (let i of u.mapKeys(aSet)) aSet[i] = callback(aSet[i]);
-  return aSet;
-};
-
-u.mapValuesPerformDeep = (aSet = {}, callback = () => {}) => {
-  for (let i of u.mapKeys(aSet)) {
-    aSet[i] = u.typeCheck(aSet[i], Object) ? u.mapValuesPerformDeep(aSet[i], callback) : callback(aSet[i]);
-  }
-  return aSet;
-};
-
-u.mapValuesPerformPromise = async (aSet = {}, callback = async () => {}) => {
-  return u.arrayPerformPromise(u.mapValues(aSet), callback).then((data) => {
-    return u.arrayToMap(u.mapKeys(aSet), data);
-  });
-};
-
-u.mapReplaceKey = (aSet = {}, keyMaps = {}) => {
-  for (let i in keyMaps)
-    if (i in aSet) {
-      aSet[keyMaps[i]] = aSet[i];
-      delete aSet[i];
-    }
-  return aSet;
-};
-
-u.mapSortByKey = (amap = {}) => {
-  let result = {};
-  Object.keys(amap)
-    .sort()
-    .map((i) => (result[i] = amap[i]));
   return result;
 };
 
@@ -663,108 +351,80 @@ u.mapSortByKey = (amap = {}) => {
  * @param {(value?,key?)=>{}} func
  */
 u.mapFilter = (map, func) => {
-  return u.mapGetExist(map, ...u.mapKeys(map).filter((key) => func(map[key], key)));
-};
-
-/**
- * @returns {{path:string[],value:any}[]}
- */
-u.mapDevGet = (map, keyPattern, _prev = []) => {
-  let result = [];
-  let pattern = u.stringToRegex(keyPattern);
-  for (let i of u.mapKeys(map)) {
-    if (pattern.test(i)) result.push({ path: u.arrayAdd(_prev, i), value: map[i] });
-    if (u.typeCheck(map[i], "map")) result = u.arrayAdd(result, u.mapDevGet(map[i], keyPattern, u.arrayAdd(_prev, i)));
+  const result = {};
+  for (const key in map) {
+    if (func(map[key], key)) {
+      result[key] = map[key];
+    }
   }
-  return result;
-};
-
-u.mapToArray = (map = {}, kvfunc = (k, v) => k + v) => {
-  let result = [];
-  for (let i of u.mapKeys(map)) result.push(kvfunc(i, map[i]));
   return result;
 };
 
 u.stringToArray = (line, sep = ",") => line.split(sep);
 
-u.stringToRegex = (string) =>
-  new RegExp(u.typeCheck(string, "regex") ? string : string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+u.stringToRegex = (input) => {
+  if (input instanceof RegExp) return input;
+  return new RegExp(String(input).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+};
 
 u.date = (value) => {
-  if (!Number.isNaN(Number(value))) return new Date(Number(value));
+  let num = Number(value);
+  if (!isNaN(num) && isFinite(num)) return new Date(num);
   return new Date(value);
 };
 
-u.genDate = (
-  year = new Date().getFullYear(),
-  month = new Date().getMonth() + 1,
-  day = new Date().getDate(),
-  hour = new Date().getHours(),
-  minute = new Date().getMinutes(),
-  second = new Date().getSeconds()
-) => new Date(year, month - 1, day, hour, minute, second);
-
-u.genRandom = (start, end, float = false) => {
-  if (start === undefined) return Math.random();
-  if (float) return Math.random() * (end - start) + start;
-  return Math.floor(Math.random() * (end - start) + start);
-};
-
-u.randomizeList = (aList) => {
-  let length = aList.length;
-  let result = Array.from(aList);
-  for (let i = 0; i < length; i++) {
-    let rand = i + Math.floor(Math.random() * (length - i));
-    let value = result[rand];
-    result[rand] = result[i];
-    result[i] = value;
-  }
-  return result;
-};
-
-u.randomChoose = (aList, itemNum = 1) => u.randomizeList(aList).slice(aList.length - itemNum);
-
-u.randomPassword = (num = 8, strong = false, symbol = false) => {
-  let base = "zxcvbnmasdfghjklqwertyuiop1234567890";
-  if (strong) base += "ZXCBVNMASDFGHJKLQWERTYUIOP";
-  if (symbol) base += ",./;'[]-=<>?:|}{+_!@#$%^&*()\\\"";
-  let result = "";
-  for (let i = 0; i < num; i++) {
-    result += base[u.genRandom(0, base.length - 1)];
-  }
-  return result;
-};
-
-u.dateCurrent = (returnType = {}, dobj = new Date()) => {
-  let year = dobj.getFullYear();
-  let month = dobj.getMonth() + 1;
-  let day = dobj.getDate();
-  let hour = dobj.getHours();
-  let minute = dobj.getMinutes();
-  let second = dobj.getSeconds();
-
-  if (Array.isArray(returnType)) {
-    return [year, month, day, hour, minute, second];
-  }
-  return { year, month, day, hour, minute, second };
-};
-
-u.dateCurrentParse = (currentObj) => {
-  if (Array.isArray(currentObj)) return u.genDate(...currentObj);
-
-  return u.genDate(
-    currentObj.year,
-    currentObj.month,
-    currentObj.day,
-    currentObj.hour,
-    currentObj.minute,
-    currentObj.second
+u.genDate = (year, month, day, hour, minute, second) => {
+  const now = new Date();
+  return new Date(
+    year ?? now.getFullYear(),
+    (month ?? now.getMonth() + 1) - 1,
+    day ?? now.getDate(),
+    hour ?? now.getHours(),
+    minute ?? now.getMinutes(),
+    second ?? now.getSeconds()
   );
 };
 
-u.dateLong = (date = new Date()) => date.getTime();
+u.genRandom = (start, end, float = false) => {
+  if (start === undefined) return Math.random();
+  const range = end - start;
+  const random = Math.random() * range + start;
+  return float ? random : Math.floor(random);
+};
 
-u.dateLongToDate = (dateLong) => new Date(Number(dateLong));
+u.randomChoose = (aList, itemNum = 1, duplicate = false) => {
+  const length = aList.length;
+  itemNum = Math.min(itemNum, length);
+
+  if (duplicate) {
+    const result = [];
+    for (let i = 0; i < itemNum; i++) {
+      result.push(aList[Math.floor(Math.random() * length)]);
+    }
+    return result;
+  }
+
+  const result = Array.from(aList);
+
+  for (let i = 0; i < itemNum; i++) {
+    const rand = i + Math.floor(Math.random() * (length - i));
+    [result[rand], result[i]] = [result[i], result[rand]];
+  }
+
+  return result.slice(0, itemNum);
+};
+
+u.randomPassword = (num = 8, strong = false, symbol = false) => {
+  const lower = "zxcvbnmasdfghjklqwertyuiop1234567890";
+  const upper = "ZXCVBNMASDFGHJKLQWERTYUIOP";
+  const symbols = ",./;'[]-=<>?:|}{+_!@#$%^&*()\\\"";
+
+  const base = lower + (strong ? upper : "") + (symbol ? symbols : "");
+  const chars = new Uint8Array(num);
+  crypto.getRandomValues(chars);
+
+  return Array.from(chars, (byte) => base[byte % base.length]).join("");
+};
 
 /**
  * @param {"date"|"iso"|"json"|"localedate"|"localetime"|"locale"|"locale24"|"datetime"|"datetime0"|"string"|"time"|"utc"|"plain"|"long"} key
@@ -784,7 +444,7 @@ u.dateLongToDate = (dateLong) => new Date(Number(dateLong));
  *
  * "datetime":"2020-04-09 06:05:45",
  *
- * "datetime0":"2020-04-08 16:00:00",
+ * "datetime0":"2020-04-08 16:00:00", beginning of the day
  *
  * "string":"Thu Apr 09 2020 14:05:45 GMT+0800 (China Standard Time)",
  *
@@ -797,41 +457,65 @@ u.dateLongToDate = (dateLong) => new Date(Number(dateLong));
  * "long":1586412345290}
  */
 u.dateFormat = (key = "*", dateObject = new Date()) => {
-  let dobj = new Date(dateObject);
+  const dobj = u.typeCheck(dateObject, "map")
+    ? new Date(
+        dateObject.year,
+        dateObject.month - 1,
+        dateObject.day,
+        dateObject.hour,
+        dateObject.minute,
+        dateObject.second
+      )
+    : new Date(dateObject);
   key = key.toLowerCase();
-  let date = {
-    date: dobj.toDateString(),
-    iso: dobj.toISOString(),
-    json: u.dateCurrent({}, dobj),
-    localedate: dobj.toLocaleDateString(),
-    localetime: dobj.toLocaleTimeString(),
-    locale: dobj.toLocaleString(),
-    locale24: dobj.toLocaleString("en-US", { hour12: false }),
-    datetime: u.stringReplace(dateObject.toISOString(), {
-      T: " ",
-      "\\.\\d+Z": "",
+
+  const formatters = {
+    date: () => dobj.toDateString(),
+    iso: () => dobj.toISOString(),
+    json: () => ({
+      year: dobj.getFullYear(),
+      month: dobj.getMonth() + 1,
+      day: dobj.getDate(),
+      hour: dobj.getHours(),
+      minute: dobj.getMinutes(),
+      second: dobj.getSeconds(),
     }),
-    datetime0: u.stringReplace(new Date(dobj.toLocaleDateString()).toISOString(), {
-      T: " ",
-      "\\.\\d+Z": "",
-    }),
-    string: dobj.toString(),
-    time: dobj.toTimeString(),
-    utc: dobj.toUTCString(),
-    plain: u.arrayToString(u.dateCurrent([], dobj), "_"),
-    long: dobj.getTime(),
+    localedate: () => dobj.toLocaleDateString(),
+    localetime: () => dobj.toLocaleTimeString(),
+    locale: () => dobj.toLocaleString(),
+    locale24: () => dobj.toLocaleString("en-US", { hour12: false }),
+    datetime: () =>
+      dobj
+        .toISOString()
+        .replace("T", " ")
+        .replace(/\.\d+Z/, ""),
+    datetime0: () =>
+      new Date(dobj.toLocaleDateString())
+        .toISOString()
+        .replace("T", " ")
+        .replace(/\.\d+Z/, ""),
+    string: () => dobj.toString(),
+    time: () => dobj.toTimeString(),
+    utc: () => dobj.toUTCString(),
+    plain: () =>
+      `${dobj.getFullYear()}_${
+        dobj.getMonth() + 1
+      }_${dobj.getDate()}_${dobj.getHours()}_${dobj.getMinutes()}_${dobj.getSeconds()}`,
+    long: () => dobj.getTime(),
   };
 
-  return key === "*" ? date : date[key];
+  if (key === "*") {
+    return Object.fromEntries(Object.entries(formatters).map(([k, fn]) => [k, fn()]));
+  }
+
+  return formatters[key]?.();
 };
 
 /**
  * @param {{year:number, month:number, day:number, hour:number, minute:number, second:number}} difference
  */
 u.dateAdd = (difference = {}, date = new Date()) => {
-  let datelong = new Date(date).getTime();
-  let d = u.mapMerge({ year: 0, month: 0, day: 0, hour: 0, minute: 0, second: 0 }, difference);
-  let calc = {
+  const MS_PER_UNIT = {
     year: 31536000000,
     month: 2592000000,
     day: 86400000,
@@ -839,36 +523,13 @@ u.dateAdd = (difference = {}, date = new Date()) => {
     minute: 60000,
     second: 1000,
   };
-  return u.dateLongToDate(u.mapKeys(calc).reduce((v, key) => v + d[key] * calc[key], datelong));
-};
 
-/**
- *
- * @param {{year?:number, month?:number,day?:number,hour?:number,minute?:number,second?:number } | number} mapOrNum
- */
-u.genTime = (mapOrNum = {}) => {
-  let calc = {
-    year: 31536000000,
-    month: 2592000000,
-    day: 86400000,
-    hour: 3600000,
-    minute: 60000,
-    second: 1000,
-  };
-  let result;
-  if (u.typeCheck(mapOrNum, "num")) {
-    result = {};
-    for (let i in calc) {
-      if (mapOrNum / calc[i] >= 1) {
-        result[i] = u.int(mapOrNum / calc[i]);
-        mapOrNum -= result[i] * calc[i];
-      }
-    }
-  } else {
-    result = 0;
-    for (let i in mapOrNum) result += calc[i] * mapOrNum[i];
-  }
-  return result;
+  const totalMs = Object.entries(MS_PER_UNIT).reduce(
+    (sum, [key, ms]) => sum + (difference[key] ?? 0) * ms,
+    new Date(date).getTime()
+  );
+
+  return new Date(totalMs);
 };
 
 u.runCode = (string) => Promise.resolve(eval("(" + string + ")"));
@@ -878,66 +539,43 @@ u.urlEncode = (string) => encodeURIComponent(string);
 u.urlDecode = (string) => decodeURIComponent(string);
 
 /**
- * 
-`{href: "https://abc.com:8080/s?a=1",
-host: "abc.com:8080",
-hostname: "abc.com",
-origin: "https://abc.com:8080",
-param: {a: '1'},
-pathname: "/s",
-port: "8080",
-protocol: "https:",
-search: "?a=1"}`
+ * Extracts a specific component or query parameter from a URL string.
+ *
+ * @param {string} urlString - Complete URL string
+ * @param {'href'|'protocol'|'host'|'hostname'|'port'|'pathname'|'search'|'origin'|string} key - Component or query param name
+ * @returns {string} The requested value or empty string
+ *
+ * @example
+ * // URL: "https://abc.com:8080/s?a=1"
+ * // Available keys:
+ * // {
+ * //   href: "https://abc.com:8080/s?a=1",
+ * //   protocol: "https:",
+ * //   host: "abc.com:8080",
+ * //   hostname: "abc.com",
+ * //   port: "8080",
+ * //   pathname: "/s",
+ * //   search: "?a=1",
+ * //   origin: "https://abc.com:8080",
+ * //   a: "1"  (query param)
+ * // }
  */
-u.urlInfo = (string) => {
-  let url = new URL(string);
+u.urlInfo = (urlString, key) => {
+  const url = new URL(u.url(urlString));
 
-  let urlParse = (search) => {
-    if (search == "") return {};
-    search = decodeURIComponent(search);
-    let result = {};
-    search.indexOf("?") > -1 && (search = search.split("?")[1]);
-    u.stringToArray(search, "&").forEach((v) => {
-      let [key, value] = u.stringToArray(v, "=");
-      result[key] = value;
-    });
-    return result;
-  };
+  if (key in url) return url[key];
 
-  return {
-    protocol: url.protocol,
-    host: url.host,
-    hostname: url.hostname,
-    port: url.port,
-    pathname: url.pathname,
-    search: url.search,
-    origin: url.origin,
-    href: url.href,
-    param: urlParse(url.search),
-  };
-};
+  if (!url.search) return "";
 
-u.reCommonFast = () => {
-  return {
-    hex: /^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/,
-    email: /^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6})$/,
-    chinese: /[\u4E00-\u9FA5\u3000-\u303F\uff00-\uffef]+/,
-    ipv4: /\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/,
-    iplocal: /(^127\.)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/,
-  };
-};
+  const search = url.search.slice(1);
+  const idx = search.indexOf(key + "=");
 
-u.reCommon = (key = "") => {
-  key = key.toLowerCase();
-  let exp = u.reCommonFast();
-  let help = {
-    g: "global match; find all matches rather than stopping after the first match",
-    i: "ignore case; if u flag is also enabled, use Unicode case folding",
-    m: "multiline; treat beginning and end characters (^ and $) as working over multiple lines (i.e., match the beginning or end of each line (delimited by \n or \r), not only the very beginning or end of the whole input string)",
-    u: "Unicode; treat pattern as a sequence of Unicode code points",
-    y: "sticky; matches only from the index indicated by the lastIndex property of this regular expression in the target string (and does not attempt to match from any later indexes).",
-  };
-  return key === "" ? { expression: exp, help: help } : exp[key];
+  if (idx === -1) return "";
+
+  const start = idx + key.length + 1;
+  const end = search.indexOf("&", start);
+
+  return decodeURIComponent(end === -1 ? search.slice(start) : search.slice(start, end));
 };
 
 /**
@@ -954,222 +592,176 @@ u.refind = (sentence, regex) => {
 u.refindall = (sentence, regex) => sentence.match(new RegExp(regex, "g"));
 
 u.reSub = (sentence, regex, replacement, ignoreCase = true) => {
-  regex = new RegExp(regex, ignoreCase ? "gi" : "g");
-  return sentence.replace(regex, replacement);
-};
-
-u.regexOnlyMatchNext = (start, next) => new RegExp(`${new RegExp(start).source}(?=${new RegExp(next).source})`);
-
-u.regexNotMatchNext = (start, next) => new RegExp(`${new RegExp(start).source}(?!${new RegExp(next).source})`);
-
-u.regexOnlyMatchNextGetNext = (start, next) => new RegExp(`(?<=${new RegExp(start).source})${new RegExp(next).source}`);
-
-u.regexNotMatchNextGetNext = (start, next) => new RegExp(`(?<!${new RegExp(start).source})${new RegExp(next).source}`);
-
-u.regexBetweenOut = (start, end) => new RegExp(`(?<=${new RegExp(start).source})(.*)(?=${new RegExp(end).source})`);
-
-u.regexBetweenOutNonGreedy = (start, end) =>
-  new RegExp(`(?<=${new RegExp(start).source})(.*?)(?=${new RegExp(end).source})`);
-
-u.regexBetweenIn = (start, end) => new RegExp(`${new RegExp(start).source}.*${new RegExp(end).source}`);
-
-u.regexBetweenInNonGreedy = (start, end) => new RegExp(`${new RegExp(start).source}(.*?)${new RegExp(end).source}`);
-
-u.stringReplace = (sentence, pairs = {}, recursive = true, all = true) => {
-  if (recursive) {
-    let temp = sentence;
-    for (let i in pairs) sentence = sentence.replace(new RegExp(i, "g"), pairs[i]);
-    if (sentence != temp) sentence = u.stringReplace(sentence, pairs, recursive);
-  } else if (all) for (let i in pairs) sentence = sentence.replace(new RegExp(i, "g"), pairs[i]);
-  else for (let i in pairs) sentence = sentence.replace(new RegExp(i), pairs[i]);
-  return sentence;
-};
-
-u.stringRemoveBefore = (sentence, segment, include = false) => {
-  let index = sentence.indexOf(segment);
-  return index == -1 ? sentence : include ? sentence.substring(index) : sentence.substring(index + segment.length);
-};
-
-u.stringRemoveAfter = (sentence, segment, include = false) => {
-  let index = sentence.lastIndexOf(segment);
-  return index == -1
-    ? sentence
-    : include
-    ? sentence.substring(0, index + segment.length)
-    : sentence.substring(0, index);
-};
-
-u.stringSplitToArray = (string, ...splitters) => string.split(new RegExp(`(${splitters.join("|")})`));
-
-u.stringToJson = (line) => {
-  if (u.typeCheck(line, Object)) return line;
-  return u.isBad(line) ? null : JSON.parse(line);
-};
-
-u.stringSymbolNormalize = (chinese) => {
-  let pairs = {
-    "：": ":",
-    "；": ";",
-    "‘": "'",
-    "’": "'",
-    "“": '"',
-    "”": '"',
-    "，": ",",
-    "？": "?",
-    "【": "[",
-    "】": "]",
-    "～": "~",
-    "！": "!",
-    "…": "...",
-    "（": "(",
-    "）": ")",
-  };
-  return u.stringReplace(chinese, pairs, true);
+  return sentence.replace(new RegExp(regex, ignoreCase ? "gi" : "g"), replacement);
 };
 
 /**
- * {"a.b":"c"} => {"a":{"b":"c"}}
+ * @example
+ * // Match "2" only when followed by "3"
+ * "123454321".match(/2(?=3)/) // Returns: [ "2" ] (the 2 in "123")
+ * @example
+ * // Match "2" only when followed by "4"
+ * "123454321".match(/2(?=4)/) // Returns: null
  */
-u.transformJson = (keyDotLiterals, sep = ".") => {
-  let kdl = u.stringToJson(keyDotLiterals);
-  return Object.keys(kdl).reduce((acc, key) => {
-    if (key.indexOf(sep) >= 0) {
-      let [parentKey, childKey] = key.split(sep);
-      acc[parentKey] = acc[parentKey] || {};
-      acc[parentKey][childKey] = kdl[key];
-    } else {
-      acc[key] = kdl[key];
-    }
-    return acc;
-  }, {});
+u.regexOnlyMatchNext = (start, next) => new RegExp(`${new RegExp(start).source}(?=${new RegExp(next).source})`);
+
+/**
+ * @example
+ * // Match "2" only when NOT followed by "3"
+ * "123454321".match(/2(?!3)/) // Returns: [ "2" ] (the 2 in "321")
+ * @example
+ * // Match "2" only when NOT followed by "4"
+ * "123454321".match(/2(?!4)/) // Returns: [ "2", "2" ] (the 2 in "123" and "321")
+ */
+u.regexNotMatchNext = (start, next) => new RegExp(`${new RegExp(start).source}(?!${new RegExp(next).source})`);
+
+/**
+ * @example
+ * // Match "3" only when preceded by "2"
+ * "123454321".match(/(?<=2)3/) // Returns: [ "3" ] (the 3 in "123")
+ * @example
+ * // Match "4" only when preceded by "2"
+ * "123454321".match(/(?<=2)4/) // Returns: null
+ */
+u.regexOnlyMatchNextGetNext = (start, next) => new RegExp(`(?<=${new RegExp(start).source})${new RegExp(next).source}`);
+
+/**
+ * @example
+ * // Match "3" only when NOT preceded by "2"
+ * "123454321".match(/(?<!2)3/) // Returns: [ "3" ] (the 3 in "321")
+ * @example
+ * // Match "4" only when NOT preceded by "2"
+ * "123454321".match(/(?<!2)4/) // Returns: [ "4", "4" ] (the 4 in "454")
+ */
+u.regexNotMatchNextGetNext = (start, next) => new RegExp(`(?<!${new RegExp(start).source})${new RegExp(next).source}`);
+
+/**
+ * @example
+ * // Match everything between "2" and "3"
+ * "123454321".match(/(?<=2)(.*)(?=3)/) // Returns: [ "3454" ]
+ * @example
+ * // Match everything between "2" and "4"
+ * "123454321".match(/(?<=2)(.*)(?=4)/) // Returns: [ "345" ]
+ */
+u.regexBetweenOut = (start, end) => new RegExp(`(?<=${new RegExp(start).source})(.*)(?=${new RegExp(end).source})`);
+
+/**
+ * @example
+ * // Match everything between "2" and "3" (non-greedy)
+ * "123454321".match(/(?<=2)(.*?)(?=3)/) // Returns: [ "" ]
+ * @example
+ * // Match everything between "2" and "4" (non-greedy)
+ * "123454321".match(/(?<=2)(.*?)(?=4)/) // Returns: [ "3" ]
+ */
+u.regexBetweenOutNonGreedy = (start, end) =>
+  new RegExp(`(?<=${new RegExp(start).source})(.*?)(?=${new RegExp(end).source})`);
+
+/**
+ * @example
+ * // Match from "2" to "3" (greedy)
+ * "123454321".match(/2.*3/) // Returns: [ "234543" ]
+ * @example
+ * // Match from "2" to "4" (greedy)
+ * "123454321".match(/2.*4/) // Returns: [ "23454" ]
+ */
+u.regexBetweenIn = (start, end) => new RegExp(`${new RegExp(start).source}.*${new RegExp(end).source}`);
+
+/**
+ * @example
+ * // Match from "2" to "3" (non-greedy)
+ * "123454321".match(/2(.*?)3/) // Returns: [ "23" ]
+ * @example
+ * // Match from "2" to "4" (non-greedy)
+ * "123454321".match(/2(.*?)4/) // Returns: [ "234" ]
+ */
+u.regexBetweenInNonGreedy = (start, end) => new RegExp(`${new RegExp(start).source}(.*?)${new RegExp(end).source}`);
+
+u.stringReplace = (sentence, pairs = {}, recursive = true, all = true) => {
+  const entries = Object.entries(pairs);
+  if (entries.length === 0) return sentence;
+
+  const flags = all ? "g" : "";
+  const regexes = entries.map(([pattern, replacement]) => [new RegExp(pattern, flags), replacement]);
+
+  const replaceSingle = (str) =>
+    regexes.reduce((result, [regex, replacement]) => result.replace(regex, replacement), str);
+
+  if (!recursive) return replaceSingle(sentence);
+
+  let result = sentence;
+  let previous;
+
+  do {
+    previous = result;
+    result = replaceSingle(result);
+  } while (result !== previous);
+
+  return result;
+};
+
+u.stringRemoveBefore = (sentence, segment, include = false) => {
+  const index = sentence.indexOf(segment);
+  if (index === -1) return sentence;
+  return sentence.substring(include ? index : index + segment.length);
+};
+
+u.stringRemoveAfter = (sentence, segment, include = false) => {
+  const index = sentence.lastIndexOf(segment);
+  if (index === -1) return sentence;
+  return sentence.substring(0, include ? index + segment.length : index);
+};
+
+u.stringToJson = (line) => {
+  if (u.typeCheck(line, "obj")) return line;
+  return line === null || line === undefined ? null : JSON.parse(line);
 };
 
 u.jsonToString = (map, space = "\t", circularCheck = false) => {
-  if (u.isBad(map)) return null;
-  if (u.typeCheck(map, "str")) return map;
-  if (circularCheck) return jStringify(map, undefined, space);
-  return JSON.stringify(map, undefined, space);
+  if (map === null || map === undefined) return null;
+  if (typeof map === "string") return map;
+
+  return (circularCheck ? jStringify : JSON.stringify)(map, undefined, space);
 };
-
-u.jsonSearchKey = (obj, key) => {
-  let list = [];
-  if (!obj) return list;
-  if (obj instanceof Array) {
-    for (var i in obj) list = list.concat(u.jsonSearchKey(obj[i], key));
-    return list;
-  }
-  if (obj[key]) list.push(obj[key]);
-
-  if (typeof obj === "object" && obj !== null) {
-    let children = Object.keys(obj);
-    if (children.length > 0) {
-      for (let i = 0; i < children.length; i++) {
-        list = list.concat(u.jsonSearchKey(obj[children[i]], key));
-      }
-    }
-  }
-  return list;
-};
-
-u.deepCopy = (obj) => (u.typeCheck(obj, "arr") ? Array.from(obj) : Object.assign({}, obj));
 
 u.fileExtension = (pathString) => u.refind(pathString, /(\.[^.]+)$/);
 
 u.url = (url) => {
-  if (u.refind(url, /^localhost/)) return "http://" + url;
-  if (url == "about:blank") return "about:blank";
-  if (/^\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/.test(url)) return "http://" + url;
-  return u.refind(url, "^http") ? url : u.refind(url, "^www") ? "https://" + url : "https://www." + url;
+  if (/^localhost/.test(url)) return "http://" + url;
+  if (url === "about:blank") return "about:blank";
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(url)) return "http://" + url;
+  if (/^http/.test(url)) return url;
+  if (/^www/.test(url)) return "https://" + url;
+  return "https://www." + url;
 };
 
-// eslint-disable-next-line no-unused-vars
-u.forReverse = (obj, callback = (item, index) => {}) => {
-  for (let i = u.len(obj) - 1; i > -1; i--) callback(obj[i], i);
-  return obj;
+u.promiseTimeout = (seconds = 0) => {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
 };
 
-// eslint-disable-next-line no-unused-vars
-u.forReversePromise = async (obj, callback = async (item, index) => {}) => {
-  for (let i = u.len(obj) - 1; i > -1; i--) await callback(obj[i], i);
-  return obj;
-};
+u.promiseTryTimes = async (func, tryTimes = 3, tryIntervalSec = 0, logError = false) => {
+  let lastError;
 
-u.timeout = (func, after = 0, end = after + 15) => {
-  let target = setTimeout(func, after * 1000);
-  if (end > 0) setTimeout(() => clearTimeout(target), end * 1000);
-};
+  for (let attempt = 1; attempt <= tryTimes; attempt++) {
+    try {
+      return await func();
+    } catch (error) {
+      lastError = error;
+      if (logError) console.error(`Attempt ${attempt}/${tryTimes} failed:`, error.message);
 
-u.timeoutRepeat = (func, everyXSec = 1, endTime) => {
-  let target = setInterval(func, everyXSec * 1000);
-  if (endTime) setTimeout(() => clearInterval(target), endTime * 1000);
-};
+      if (attempt < tryTimes && tryIntervalSec > 0) {
+        await u.promiseTimeout(tryIntervalSec);
+      }
+    }
+  }
 
-u.timeoutRepeatTotal = (func, everyXSec = 1, totalExec) => {
-  let target = setInterval(func, everyXSec * 1000);
-  if (totalExec) setTimeout(() => clearInterval(target), totalExec * everyXSec * 1000);
+  throw lastError;
 };
 
 /**
  * function will continue anyway, thus separate large functions
  */
-u.timeoutReject = async (func, seconds = 30, errorMsg = "timeout reached") => {
+u.promiseTimeoutReject = async (func, seconds = 30, errorMsg = "timeout reached") => {
   return Promise.race([async () => func(), u.promiseTimeout(() => {}, seconds).then(() => Promise.reject(errorMsg))]);
-};
-
-u.promisify = async (func, ...args) => await func(...args);
-
-u.promiseTimeout = async (funcOrPromise, waitSeconds = 0) => {
-  return new Promise((resolve) => u.timeout(() => resolve(funcOrPromise()), waitSeconds, -1));
-};
-
-u.promiseTryTimes = async (func, tryTimes = 3, tryIntervalSec = -1, logError = false) => {
-  return new Promise((resolve) => resolve(func())).catch(async (error) => {
-    if (logError) console.log(error);
-    if (tryTimes === 0) return Promise.reject(error);
-    await u.promiseTimeout(() => {}, tryIntervalSec);
-    return u.promiseTryTimes(func, tryTimes - 1, tryIntervalSec);
-  });
-};
-
-/**
- *
- * @param {(error,remain:number)=>{}} func
- */
-u.promiseTryTimesInfo = async (func, tryTimes = 3, tryIntervalSec = -1, _error) => {
-  return new Promise((resolve) => resolve(func(_error, tryTimes))).catch(async (error) => {
-    if (tryTimes === 0) return Promise.reject(error);
-    await u.promiseTimeout(() => {}, tryIntervalSec);
-    return u.promiseTryTimesInfo(func, tryTimes - 1, tryIntervalSec, error);
-  });
-};
-
-u.promiseInterval = async (innerFunc, catcher = () => {}, successWait = 3, errorWait = 5) => {
-  return (async () => innerFunc())()
-    .then(() => u.timeout(() => u.promiseInterval(innerFunc, catcher, successWait, errorWait), successWait))
-    .catch(async (e) => {
-      await catcher(e);
-      return u.timeout(() => u.promiseInterval(innerFunc, catcher, successWait, errorWait), errorWait);
-    });
-};
-
-u.promiseFastest = async (...promiseObjs) => {
-  if (!u.isBad(promiseObjs) && u.typeCheck(promiseObjs, Promise)) promiseObjs = [promiseObjs];
-  return Promise.race(promiseObjs);
-};
-
-u.promiseAllComplete = async (...promiseObjs) => {
-  if (!u.isBad(promiseObjs) && u.typeCheck(promiseObjs, Promise)) promiseObjs = [promiseObjs];
-  return Promise.all(promiseObjs);
-};
-
-u.promiseAllCompleteSafe = async (...promiseObjs) => {
-  if (!u.isBad(promiseObjs) && u.typeCheck(promiseObjs, Promise)) promiseObjs = [promiseObjs];
-  for (let i in promiseObjs) {
-    promiseObjs[i] = promiseObjs[i].catch((error) => {
-      console.log(`error_${i}`, error);
-    });
-  }
-  return Promise.all(promiseObjs);
 };
 
 /**
@@ -1196,62 +788,52 @@ u.promiseAllCompleteSafe = async (...promiseObjs) => {
  * @return {Promise<{status:number, headers:{}, body:{}, result:{} | string}>}
  */
 u.promiseFetchRaw = async (url, method = "GET", headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
-  if (!u.contains(url, "localhost") || url.toLowerCase() !== "about:blank") url = u.url(url);
-  let param = {
-    method,
-    headers: {
-      "Content-Type": "application/json;charset=UTF-8",
-      Accept: "application/json, text/plain, */*",
-      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-      "Accept-Encoding": "gzip, deflate, br",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-      "sec-ch-ua": '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"macOS"',
-      "sec-fetch-site": "none",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      DNT: "1",
-      Connection: "keep-alive",
-    },
-    mode: "cors",
-    cache: "default",
-    credentials: "same-origin",
-    redirect: "follow",
-    referrer: "client",
-  };
-  param.headers = u.mapMerge(param.headers, headers);
-  param = u.mapMerge(param, fetchSettings);
-  return fetch(url, param)
-    .then(async (response) => {
-      /** clone()/redirect()/arrayBuffer()/formData()/blob()/text()/json() **/
-      let contentType = response.headers.get("content-type");
-      let result =
-        contentType && contentType.indexOf("application/json") !== -1 ? await response.json() : await response.text();
-      if (response.status >= 400) return Promise.reject({ status: response.status, result });
+  if (!u.contains(url, "localhost") && url.toLowerCase() !== "about:blank") url = u.url(url);
 
-      return {
-        status: response.status,
-        headers: response.headers,
-        body: response.body,
-        result,
-      };
-    })
-    .catch(async (error) => {
-      if (!error.status && !error.msg) {
-        console.log(error);
-        return Promise.reject({ status: 600, msg: "fetch error" });
-      }
-      if (retry > 0)
-        return u.promiseTimeout(
-          () => u.promiseFetchRaw(url, method, headers, fetchSettings, retry - 1, interval),
-          interval
-        );
-      return Promise.reject(error);
-    });
+  if (!u._global._httpDefaultOption)
+    u._global._httpDefaultOption = {
+      mode: "cors",
+      cache: "default",
+      credentials: "same-origin",
+      redirect: "follow",
+      referrer: "client",
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+        "sec-ch-ua": '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1",
+        DNT: "1",
+        Connection: "keep-alive",
+      },
+    };
+
+  const param = u.mapMergeDeep(u._global._httpDefaultOption, { method, headers }, fetchSettings);
+
+  try {
+    const response = await fetch(url, param);
+    const contentType = response.headers.get("content-type");
+    const result = contentType?.includes("application/json") ? await response.json() : await response.text();
+
+    if (response.status >= 400) throw { status: response.status, result };
+
+    return { status: response.status, headers: response.headers, body: response.body, result };
+  } catch (error) {
+    if (retry > 0) {
+      await u.promiseTimeout(interval);
+      return u.promiseFetchRaw(url, method, headers, fetchSettings, retry - 1, interval);
+    }
+    throw error.status ? error : { status: 600, msg: "fetch error", error };
+  }
 };
 
 /**
@@ -1263,45 +845,15 @@ u.promiseFetchGet = async (url, headers = {}, fetchSettings = {}, retry = 1, int
   return u.promiseFetchRaw(url, "GET", headers, fetchSettings, retry, interval).then((data) => data.result);
 };
 
-u._jsonToUri = (parameter = {}) => {
-  if (u.typeCheck(parameter, "str")) return parameter;
-  let result = "";
-  for (let i in parameter) result += u.urlEncode(i) + "=" + u.urlEncode(parameter[i]) + "&";
-  return result.slice(0, u.len(result) - 1);
-};
-
 /**
  *
  * @param {headers} headers
  * @param {fetchOption} fetchSettings
  */
-u.promiseFetchPost = async (url, parameterURL = {}, headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
-  fetchSettings = u.mapMerge(fetchSettings, { body: u.jsonToString(parameterURL) });
-  return u.promiseFetchRaw(url, "POST", headers, fetchSettings, retry, interval).then((data) => data.result);
-};
-
-u.promiseFetchPostJson = async (url, parameter = {}) => {
-  return u.promiseFetchPost(url, parameter, { "Content-Type": "application/json" });
-};
-
-u.promiseFetchPostXForm = async (url, parameter = {}) => {
-  return u.promiseFetchPost(
-    url,
-    {},
-    { "Content-Type": "application/x-www-form-urlencoded", body: u._jsonToUri(parameter) }
-  );
-};
-
-u.promiseFetchPostFormMult = async (url, parameter = {}) => {
-  return u.promiseFetchPost(url, parameter, { "Content-Type": "multipart/form-data" });
-};
-
-u.promiseFetchPostProbe = async (url, parameter = {}) => {
-  return u.promiseAllCompleteSafe(
-    u.promiseFetchPostJson(url, parameter),
-    u.promiseFetchPostXForm(url, parameter),
-    u.promiseFetchPostFormMult(url, parameter)
-  );
+u.promiseFetchPost = async (url, body = {}, headers = {}, fetchSettings = {}, retry = 1, interval = 1) => {
+  return u
+    .promiseFetchRaw(url, "POST", headers, { body: u.jsonToString(body), ...fetchSettings }, retry, interval)
+    .then((data) => data.result);
 };
 
 u.serialize = (obj, unsafe = true, ignoreFunction = false) => serialize(obj, { unsafe, ignoreFunction, space: "\t" });

@@ -9,5 +9,8 @@ module.exports = [
       sourceType: "commonjs",
       globals: { ...globals.node },
     },
+    rules: {
+      "no-undef": "error",
+    },
   },
 ];

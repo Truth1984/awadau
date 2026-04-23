@@ -22,14 +22,20 @@ sadd("contain", async (r) => {
   if (!u.contains([13, 53], [13])) return r();
   if (!u.contains({ ds: 12, bd: "wq" }, ["ds", "bd"])) return r();
   if (!u.contains({ ds: 12, bd: "wq" }, [12, "wq"])) return r();
-  if (u.contains({ ds: 12, bd: "wq" }, [12, "bd"])) return r();
+  if (!u.contains({ ds: 12, bd: "wq" }, [12, "bd"])) return r();
+  if (u.contains({ ds: 12, bd: "wq" }, ["12", "bd"])) return r();
+  if (u.contains({ ds: 12, bd: "wq" }, ["ab", "wq"])) return r();
+  if (!u.contains({ ds: 12, bd: "wq" }, { ds: 12 })) return r();
+  if (u.contains({ ds: 12, bd: "wq" }, { ds: "wq" })) return r();
 });
 
 sadd("equal", async (r) => {
   if (!u.equal(1, 1)) return r();
   if (!u.equal([1], [1])) return r();
   if (!u.equal({ 1: "a" }, { 1: "a" })) return r();
-  if (u.equal({ b: 1, c: 3 }, { c: 3, b: 1 })) return r(); // use contains
+  if (!u.equal({ b: 1, c: 3 }, { c: 3, b: 1 })) return r();
+  if (!u.equal({ a: { b: "c" } }, { a: { b: "c" } })) return r();
+  if (u.equal({ a: { b: "c" } }, { a: { b: { c: "" } } })) return r();
   if (u.equal({ a: 12 }, { a: "12" })) return r();
   if (u.equal({ 1: 1 }, [1])) return r();
   if (u.equal("1", [1])) return r();
@@ -57,6 +63,19 @@ sadd("len", async (r) => {
   if (u.len("dqd") != 3) return r();
   if (u.len(3241) != 4) return r();
   if (u.len(2.3) != -1) return r();
+});
+
+sadd("mapMergeDeep", async (r) => {
+  if (
+    !u.equal(u.mapMergeDeep({}, { a: { c: 5 } }, { a: { b: 12, c: 15 }, d: 8 }, { a: { b: 10 } }), {
+      a: { b: 10, c: 15 },
+      d: 8,
+    })
+  )
+    return r();
+
+  if (!u.equal(u.mapMergeDeep({ c: [1, 2, 3] }, { c: [4] }), { c: [4] })) return r();
+  if (!u.equal(u.mapMergeDeep({ c: { a: 2 } }, { c: { b: 3 } }), { c: { a: 2, b: 3 } })) return r();
 });
 
 u.log(t.runAuto().then(() => "all test passed"));
