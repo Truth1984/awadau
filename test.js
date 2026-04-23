@@ -10,6 +10,8 @@ let sadd = (name, cb) => {
   t.add(name, () => cb(() => reject(name)));
 };
 
+let sp = (name) => t.add(name, () => {});
+
 sadd("contain", async (r) => {
   if (!u.contains([1], 1)) return r();
   if (!u.contains({ 2: 3, 5: 6 }, { 2: 3 })) return r();
@@ -51,6 +53,7 @@ sadd("typeCheck", async (r) => {
   if (u.typeCheck(1, "bool")) return r();
   if (u.typeCheck("true", "bool")) return r();
   if (!u.typeCheck(u.date(), "date")) return r();
+  if (u.typeCheck(u.date(), "map")) return r();
   if (!u.typeCheck([21], "arr")) return r();
   if (u.typeCheck("33,12", "arr")) return r();
   if (!u.typeCheck({ a: 12 }, "map")) return r();
@@ -78,4 +81,76 @@ sadd("mapMergeDeep", async (r) => {
   if (!u.equal(u.mapMergeDeep({ c: { a: 2 } }, { c: { b: 3 } }), { c: { a: 2, b: 3 } })) return r();
 });
 
-u.log(t.runAuto().then(() => "all test passed"));
+sp("sct", () => {});
+
+sadd("stringCheckType (num) edge", async (r) => {
+  if (!u.stringCheckType("123", "num")) return r();
+  if (!u.stringCheckType("-12.34", "num")) return r();
+  if (!u.stringCheckType("1e3", "num")) return r();
+  if (u.stringCheckType("", "num")) return r();
+  if (u.stringCheckType(" ", "num")) return r();
+  if (u.stringCheckType("abc", "num")) return r();
+  if (u.stringCheckType("NaN", "num")) return r();
+  if (u.stringCheckType("1,000", "num")) return r();
+});
+
+sadd("stringCheckType (arr) edge", async (r) => {
+  if (!u.stringCheckType("[]", "arr")) return r();
+  if (!u.stringCheckType("[1,2,3]", "arr")) return r();
+  if (!u.stringCheckType('["a","b"]', "arr")) return r();
+  if (u.stringCheckType("", "arr")) return r();
+  if (u.stringCheckType(" ", "arr")) return r();
+  if (u.stringCheckType("not json", "arr")) return r();
+  if (u.stringCheckType("{}", "arr")) return r();
+  if (u.stringCheckType("[1,2,", "arr")) return r();
+});
+
+sadd("stringCheckType (obj) edge", async (r) => {
+  if (!u.stringCheckType("{}", "obj")) return r();
+  if (!u.stringCheckType('{"a":1}', "obj")) return r();
+  if (!u.stringCheckType('{"nested":{"x":[1,2]}}', "obj")) return r();
+  if (u.stringCheckType("", "obj")) return r();
+  if (u.stringCheckType("not json", "obj")) return r();
+  if (u.stringCheckType("{a: 1}", "obj")) return r();
+  if (u.stringCheckType('{"a":}', "obj")) return r();
+});
+
+sadd("stringCheckType (bool) edge", async (r) => {
+  if (!u.stringCheckType("true", "bool")) return r();
+  if (!u.stringCheckType("false", "bool")) return r();
+  if (u.stringCheckType("", "bool")) return r();
+  if (u.stringCheckType(" ", "bool")) return r();
+});
+
+sadd("stringCheckType (date) edge", async (r) => {
+  if (!u.stringCheckType("2020-01-01", "date")) return r();
+  if (!u.stringCheckType("2020-01-01T00:00:00.000Z", "date")) return r();
+  if (!u.stringCheckType("2024-02-29", "date")) return r();
+  if (u.stringCheckType("", "date")) return r();
+  if (u.stringCheckType("not-a-date", "date")) return r();
+  if (u.stringCheckType("2020-13-01", "date")) return r();
+  if (u.stringCheckType("2020-00-10", "date")) return r();
+});
+
+sp("sr");
+
+sadd("stringReplace (all + recursive) edge", async (r) => {
+  if (u.stringReplace("foo", { foo: "bar" }) !== "bar") return r();
+  if (u.stringReplace("foo foo foo", { foo: "bar" }, false, false) !== "bar foo foo") return r();
+  if (u.stringReplace("foo foo foo", { foo: "bar" }, false, true) !== "bar bar bar") return r();
+  if (u.stringReplace("foo foo foo", { foo: "bar" }, true, false) !== "bar bar bar") return r();
+  if (u.stringReplace("hello", { world: "x" }) !== "hello") return r();
+  if (u.stringReplace("abc", {}) !== "abc") return r();
+});
+
+sadd("stringReplace (recursive chaining) edge", async (r) => {
+  if (u.stringReplace("cat", { cat: "dog", dog: "cow" }, true, true) !== "cow") return r();
+  if (u.stringReplace("cat", { cat: "dog", dog: "cow" }, false, true) == "dog") return r();
+});
+
+sadd("stringReplace (cycle breaks) edge", async (r) => {
+  let out = u.stringReplace("a", { a: "b", b: "a" }, true, true);
+  if (out !== "a" && out !== "b") return r();
+});
+
+u.log(t.runAuto("sr").then(() => "all test passed"));

@@ -260,17 +260,6 @@ u.arraySets = (...arr) => [...new Set(arr.flat())];
 
 u.arrayExtract = (arr, start, end = arr.length) => arr.slice(start, end);
 
-u.arrayRemove = (arr, items = []) => {
-  const toRemove = Array.isArray(items) ? items : [items];
-  const canon = (v) => {
-    if (v === null) return "null";
-    if (typeof v !== "object") return JSON.stringify(v);
-    return JSON.stringify(v, Object.keys(v).sort());
-  };
-  const removeSet = new Set(toRemove.map(canon));
-  return arr.filter((v) => !removeSet.has(canon(v)));
-};
-
 u.arrayPopEnd = (arr) => arr.pop();
 
 u.arrayPopStart = (arr) => arr.shift();
@@ -691,9 +680,16 @@ u.stringReplace = (sentence, pairs = {}, recursive = true, all = true) => {
   let result = sentence;
   let previous;
 
+  const MAX_ITERATIONS = 1000;
+  let iterations = 0;
+
   do {
     previous = result;
     result = replaceSingle(result);
+    iterations++;
+    if (iterations > MAX_ITERATIONS) {
+      throw new Error(`Replacement recursion exceeded ${MAX_ITERATIONS} iterations`);
+    }
   } while (result !== previous);
 
   return result;
